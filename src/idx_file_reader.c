@@ -6,19 +6,7 @@
 #include <stdlib.h>
 
 
-// idx->file* idx->file_init(Arena* arena)
-// {
-//     idx->file* idx->
-//     if (arena) {
-//         idx->= (idx->file*)arena_alloc(arena, sizeof(*idx->);
-//     } else {
-//         idx->= malloc(sizeof(*idx->);
-//     }
-//
-//
-// }
-
-b8 read_idx_file(idx_file* idx, const char* filepath)
+b8 idx_read_file(idx_file* idx, const char* filepath)
 {
     CHECK_FATAL(!idx, "idx_file is null");
     CHECK_FATAL(!filepath, "filepath is null");
@@ -62,11 +50,15 @@ b8 read_idx_file(idx_file* idx, const char* filepath)
     // Print first few pixels of first image
     print_hex(idx->data, 64, 8);
     
+    idx_type type = idx->data_type;
+    printf("data type: %d\n", type);
+
     free(idx->data);
     free(idx->dim_sizes);
     fclose(f);
 
     return true;
 }
+
 
 

@@ -3,15 +3,6 @@
 
 #include "common.h"
 
-typedef enum {
-    UNSIGNED_BYTE = 0x08,
-    SIGNED_BYTE   = 0x09,
-    SHORT         = 0x0B,
-    INT           = 0x0C,
-    FLOAT         = 0x0D,
-    DOUBLE        = 0x0E,
-} idx_type;
-
 
 typedef struct {
     //u32 magic;    // first 2 bytes must be 0 (MSB)
@@ -30,7 +21,21 @@ typedef struct {
 // void idx_file_destroy(idx_file* idx_file);  // if heap alloced
 
 
-b8 read_idx_file(idx_file* idx, const char* filepath);
+b8 idx_read_file(idx_file* idx, const char* filepath);
+
+b8 idx_save_custom_format(const idx_file* idx, const char* outfile);
+
+const char* idx_get_datatype(const idx_file* idx) {
+    switch (idx->data_type) {
+        case 0x08: return "u8";
+        case 0x09: return "i8";
+        case 0x0B: return "i16";
+        case 0x0C: return "i32";
+        case 0x0D: return "f32";
+        case 0x0E: return "f64";
+        default: return "void";
+    }
+}
 
 
 #endif // IDX_FILE_READER_H
