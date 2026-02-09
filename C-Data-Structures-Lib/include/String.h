@@ -49,7 +49,7 @@ void string_copy(String* dest, const String* src);
 char* string_to_cstr(const String* str);
 // get ptr to the cstr buffer
 // Note: NO NULL TERMINATOR
-char* string_data_ptr(const String* str);
+const char* string_data_ptr(const String* str);
 
 
 // TODO:

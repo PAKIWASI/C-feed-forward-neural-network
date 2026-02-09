@@ -153,7 +153,7 @@ char* string_to_cstr(const String* str)
 }
 
 
-char* string_data_ptr(const String* str)
+const char* string_data_ptr(const String* str)
 {
     CHECK_FATAL(!str, "str is null");
 
@@ -161,7 +161,7 @@ char* string_data_ptr(const String* str)
         return NULL;
     }
 
-    return (char*)str->data;
+    return (const char*)str->data;
 }
 
 

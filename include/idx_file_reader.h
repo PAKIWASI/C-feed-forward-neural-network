@@ -1,6 +1,7 @@
 #ifndef IDX_FILE_READER_H
 #define IDX_FILE_READER_H
 
+#include "arena.h"
 #include "common.h"
 
 
@@ -15,7 +16,8 @@ typedef struct {
 } idx_file;
 
 
-b8 idx_read_file(idx_file* idx, const char* filepath);
+
+b8 idx_read_file(idx_file* idx, const char* filepath, Arena* arena);
 
 
 static inline const char* idx_get_datatype(const idx_file* idx)
