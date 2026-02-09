@@ -57,6 +57,11 @@
         if (cond) { FATAL("Check: (%s): " fmt, #cond, ##__VA_ARGS__); } \
     } while (0)
 
+#define LOG(fmt, ...)                               \
+    do {                                            \
+        printf("[LOG] : %s(): " fmt "\n", __func__, ##__VA_ARGS__); \
+    } while (0)
+
 
 // TYPES
 
