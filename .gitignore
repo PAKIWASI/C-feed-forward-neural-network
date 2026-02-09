@@ -2,7 +2,9 @@
 build/
 .cache
 
-./data/label_img.bin.bak
+./data/dataset.bin
+dataset.bin
+label_img.bin
 
 
 notes.md
