@@ -2,6 +2,7 @@
 #define MNIST_DATA_PROCESSOR
 
 #include "common.h"
+#include "idx_file_reader.h"
 
 
 
@@ -18,6 +19,15 @@
 #define MNIST_SIZE_LABEL_TRAIN ((u64)MNIST_TRAIN_SIZE * MNIST_LABEL_SIZE)
 
 
+typedef struct {
+    u8* data;
+    u16 num_imgs;
+    u8 img_w;
+    u8 img_h;
+} mnist_dataset;
+
+
+
 
 // one time loader (PRIVATE-MOVE TO C FILE)
 // b8 mnist_load_from_idx(String* data_dir, Arena* arena);
@@ -27,7 +37,7 @@
 b8 mnist_prepare_from_idx(const char* data_dir, const char* out_dir);
 
 // load the file with the custom format : dims|label|img...
-void mnist_load_custom_file(const char* filepath);
+b8 mnist_load_custom_file(mnist_dataset* set, const char* filepath, Arena* arena);
 
 
 // void mnist_print_img(u8* img);

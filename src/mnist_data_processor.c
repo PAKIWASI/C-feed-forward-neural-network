@@ -1,5 +1,4 @@
 #include "mnist_data_processor.h"
-#include "idx_file_reader.h"
 #include "String.h"
 
 
@@ -11,8 +10,6 @@ b8 mnist_save_custom_file(idx_file* img, idx_file* label, String* outdir);
 
 b8 mnist_prepare_from_idx(const char* data_dir, const char* out_dir)
 {
-
-
     Arena* arena = arena_create(MNIST_SIZE_IMG_TRAIN + MNIST_SIZE_LABEL_TRAIN + 1000);
 
     LOG("arena alloced size: %lu\n", arena->size);
@@ -22,10 +19,10 @@ b8 mnist_prepare_from_idx(const char* data_dir, const char* out_dir)
     // allocate idx_file's for the train set
     // corresponds to files[] index
     idx_file* set[2] = {
-    // train data idx
-    (idx_file*)arena_alloc(arena, sizeof(idx_file)),
-    // train label idx
-    (idx_file*)arena_alloc(arena, sizeof(idx_file))
+        // train data idx
+        (idx_file*)arena_alloc(arena, sizeof(idx_file)),
+        // train label idx
+        (idx_file*)arena_alloc(arena, sizeof(idx_file))
     };
 
 
@@ -50,6 +47,41 @@ b8 mnist_prepare_from_idx(const char* data_dir, const char* out_dir)
     return true;
 }
 
+
+b8 mnist_load_custom_file(mnist_dataset* set, const char* filepath, Arena* arena)
+{
+    FILE* f = fopen(filepath, "rb");
+    if (!f) {
+        LOG("couldn't open file %s", filepath);
+        return false;
+    }
+
+    fread(&set->num_imgs, sizeof(u16), 1, f);
+    fread(&set->img_w, sizeof(u8), 1, f);
+    fread(&set->img_h, sizeof(u8), 1, f);
+    
+    CHECK_FATAL(set->img_w != set->img_h, "img dims differ");
+    CHECK_FATAL(set->img_w != MNIST_IMG_DIM, "mnist img dim mismatch");
+
+    LOG("Read num_imgs: %u", set->num_imgs);
+    LOG("Read img_w: %u", set->img_w);
+    LOG("Read img_h: %u", set->img_h);
+
+    // allocate mem for num of imgs
+    u64 m = arena_get_mark(arena);
+    u64 size = set->num_imgs * (MNIST_IMG_SIZE + MNIST_LABEL_SIZE);
+    set->data = arena_alloc(arena, size);
+    LOG("arena allocated %lu", arena_used(arena) - m);
+
+    // read all at once
+    fread(set->data, sizeof(u8), size, f);
+
+    fclose(f);
+    return true;
+}
+
+
+// private functions
 
 b8 mnist_load_from_idx(String* data_dir, idx_file** set, Arena* arena)
 {
@@ -124,13 +156,12 @@ b8 mnist_save_custom_file(idx_file* img, idx_file* label, String* outdir)
     string_append_char(outdir, '\0');
     const char* full_path = string_data_ptr(outdir);
 
-    LOG("about to open file %s", full_path); 
     FILE* f = fopen(full_path, "wb");
     if (!f) {
         LOG("Read Error file %s", full_path);
         return false;
     }
-    LOG("opened file %s", full_path);
+    LOG("opened file %s", full_path); 
 
     // write dimentions
     // 2 byte total number of images
