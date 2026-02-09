@@ -1,4 +1,8 @@
+
 build/
 .cache
+
+./data/label_img.bin.bak
+
 
 notes.md
