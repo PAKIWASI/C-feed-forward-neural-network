@@ -1,4 +1,5 @@
 #include "mnist_data_processor.h"
+#include "idx_file_reader.h"
 #include "String.h"
 
 
@@ -48,6 +49,8 @@ b8 mnist_prepare_from_idx(const char* data_dir, const char* out_dir)
 }
 
 
+
+
 b8 mnist_load_custom_file(mnist_dataset* set, const char* filepath, Arena* arena)
 {
     FILE* f = fopen(filepath, "rb");
@@ -78,6 +81,22 @@ b8 mnist_load_custom_file(mnist_dataset* set, const char* filepath, Arena* arena
 
     fclose(f);
     return true;
+}
+
+
+void mnist_print_img(u8* data, u64 index)
+{
+    data += (index * (MNIST_IMG_SIZE + MNIST_LABEL_SIZE));
+    printf("\n Label: %u\n\n", *data);
+
+    for (u64 i = 0; i < MNIST_IMG_SIZE; i++) {
+        printf("%d ", *(data + i + 1));  // TODO: format ? 
+
+        if (i != 0 && i % MNIST_IMG_DIM == 0) {
+            putchar('\n');
+        }
+    }
+    putchar('\n');
 }
 
 

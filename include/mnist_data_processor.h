@@ -2,7 +2,7 @@
 #define MNIST_DATA_PROCESSOR
 
 #include "common.h"
-#include "idx_file_reader.h"
+#include "arena.h"
 
 
 
@@ -27,11 +27,9 @@ typedef struct {
 } mnist_dataset;
 
 
+// TODO: mmap?
 
 
-// one time loader (PRIVATE-MOVE TO C FILE)
-// b8 mnist_load_from_idx(String* data_dir, Arena* arena);
-// b8 mnist_save_custom_file(idx_file* img, idx_file* label, const char* outpath);
 
 // PUBLIC API
 b8 mnist_prepare_from_idx(const char* data_dir, const char* out_dir);
@@ -39,8 +37,8 @@ b8 mnist_prepare_from_idx(const char* data_dir, const char* out_dir);
 // load the file with the custom format : dims|label|img...
 b8 mnist_load_custom_file(mnist_dataset* set, const char* filepath, Arena* arena);
 
-
-// void mnist_print_img(u8* img);
+// print img of size MNIST_IMG_SIZE, label of size MNIST_LABEL_SIZE, at index
+void mnist_print_img(u8* data, u64 index);
 
 
 

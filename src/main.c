@@ -20,11 +20,11 @@ int main(void)
 
     mnist_load_custom_file(
         set, 
-        "/home/wasi/Documents/projects/c/ffnn/data/label_img.bin",
+        "/home/wasi/Documents/projects/c/ffnn/data/dataset.bin",
         arena
     );
 
-    print_hex(set->data, MNIST_IMG_SIZE + 1, MNIST_IMG_DIM);
+    mnist_print_img(set->data, 59999);
 
     arena_release(arena);
 }

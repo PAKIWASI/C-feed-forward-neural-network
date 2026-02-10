@@ -12,7 +12,7 @@ u64 cstr_len(const char* cstr);
 
 String* string_create(void)
 {
-    return genVec_init(0, sizeof(char), NULL, NULL, NULL);
+    return (String*)genVec_init(0, sizeof(char), NULL, NULL, NULL);
 }
 
 
@@ -153,7 +153,7 @@ char* string_to_cstr(const String* str)
 }
 
 
-const char* string_data_ptr(const String* str)
+char* string_data_ptr(const String* str)
 {
     CHECK_FATAL(!str, "str is null");
 
@@ -161,7 +161,7 @@ const char* string_data_ptr(const String* str)
         return NULL;
     }
 
-    return (const char*)str->data;
+    return (char*)str->data;
 }
 
 

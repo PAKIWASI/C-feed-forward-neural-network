@@ -5,7 +5,6 @@
 #include "gen_vector.h"
 
 
-
 // ===== STRING =====
 // the string is just a genVec of char type (length based string - not cstr)
 typedef genVec String;
@@ -46,10 +45,11 @@ void string_move(String* dest, String** src);
 void string_copy(String* dest, const String* src);
 
 // get cstr as COPY ('\0' present)
+// cstr is MALLOCED and must be freed by user
 char* string_to_cstr(const String* str);
 // get ptr to the cstr buffer
 // Note: NO NULL TERMINATOR
-const char* string_data_ptr(const String* str);
+char* string_data_ptr(const String* str);
 
 
 // TODO:
@@ -158,7 +158,6 @@ static inline b8 string_empty(const String* str)
 
 
 // TODO: string view?
-// TODO: sso ?
 // TODO:
 /*
 // Split string by delimiter
