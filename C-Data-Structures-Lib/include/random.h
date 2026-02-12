@@ -235,10 +235,5 @@ float pcg32_rand_gaussian(void);
 float pcg32_rand_gaussian_custom(float mean, float stddev);
 
 
-// fast math functions
-float fast_sqrt(float x);
-float fast_log(float x);
-float fast_cos(float x);
-float fast_sin(float x);
 
 #endif // RANDOM_H
