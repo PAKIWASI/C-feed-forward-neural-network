@@ -27,8 +27,6 @@ typedef struct {
 } mnist_dataset;
 
 
-// TODO: mmap?
-
 
 
 // PUBLIC API

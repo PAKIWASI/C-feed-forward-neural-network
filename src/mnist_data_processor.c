@@ -4,6 +4,8 @@
 
 
 
+// TODO: use new string reader thing
+
 b8 mnist_load_from_idx(String* data_dir, idx_file** set, Arena* arena);
 b8 mnist_save_custom_file(idx_file* img, idx_file* label, String* outdir);
 
