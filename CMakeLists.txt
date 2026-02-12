@@ -32,4 +32,5 @@ add_executable(main ${SRC_FILES} ${C_DS_LIB})
 target_include_directories(main PRIVATE 
                                 include 
                                 C-Data-Structures-Lib/include
+                                tests
                           )

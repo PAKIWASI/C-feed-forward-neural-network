@@ -22,8 +22,8 @@
 typedef struct {
     u8* data;
     u16 num_imgs;
-    u8 img_w;
-    u8 img_h;
+    u8  img_w;
+    u8  img_h;
 } mnist_dataset;
 
 

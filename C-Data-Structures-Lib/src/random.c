@@ -8,10 +8,6 @@
 void pcg32_rand_seed_r(pcg32_random_t* rng, u64 seed, u64 seq);
 u32 pcg32_rand_r(pcg32_random_t* rng);
 u32 pcg32_rand_bounded_r(pcg32_random_t* rng, u32 bound);
-float fast_sqrt(float x);
-float fast_log(float x);
-float fast_cos(float x);
-float fast_sin(float x);
 
 
 
