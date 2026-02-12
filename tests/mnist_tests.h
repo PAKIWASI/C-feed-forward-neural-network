@@ -1,13 +1,14 @@
 #ifndef MNIST_TESTS
 #define MNIST_TESTS
 
-#include "arena.h"
-#include "common.h"
-#include "layer.h"
-#include "matrix.h"
-#include "mnist_data_processor.h"
-#include <stdio.h>
 
+#include "arena.h"
+#include "fast_math.h"
+#include "ffnn.h"
+#include "layer.h"
+#include "mnist_data_processor.h"
+
+#define LEARNING_RATE 0.01f
 
 
 int test_idx_load(void)
@@ -73,6 +74,123 @@ int test_layer_creation_1(void)
         }
     }
 
+    arena_release(arena);
+    return 0;
+}
+
+int test_layer_creation_2(void)
+{
+    Arena* arena = arena_create(nKB(5));
+    LOG("alloced %lu to arena", arena_remaining(arena));
+
+    Layer* hl = layer_create_hidden(arena, 8, 16);
+    LOG("arena usage after hl: %lu", arena_used(arena));
+    Layer* ol = layer_create_output(arena, 16, 10);
+    LOG("arena usage after ol: %lu", arena_used(arena));
+
+    layer_init_weights_biases(hl);
+    layer_init_weights_biases(ol);
+
+
+    for (u8 i = 0; i < 100; i++) 
+    {
+        float input[8] = { 0, 1, 2, 3, 4, 5, 6, 7};
+
+        LOG("forward pass");
+        ffnn_forward(hl, (float*)&input);
+        ffnn_forward(ol, hl->a);
+
+        float true_output[10] = { 0, 1, 0, 0, 0, 0, 0, 0, 0, 0 };
+
+        LOG("backward pass");
+        ffnn_backward(ol, (float*)true_output);
+        ffnn_backward(hl, ol->dL_dx);
+    }
+
+
+
+    arena_release(arena);
+    return 0;
+}
+
+int test_layer_creation_3(void)
+{
+    Arena* arena = arena_create(nKB(5));
+    LOG("alloced %lu to arena", arena_remaining(arena));
+    
+    Layer* hl = layer_create_hidden(arena, 8, 16);
+    LOG("arena usage after hl: %lu", arena_used(arena));
+    
+    Layer* ol = layer_create_output(arena, 16, 10);
+    LOG("arena usage after ol: %lu", arena_used(arena));
+    
+    layer_init_weights_biases(hl);
+    layer_init_weights_biases(ol);
+    
+    float input[8] = {0, 1, 2, 3, 4, 5, 6, 7};
+    float true_output[10] = {0, 1, 0, 0, 0, 0, 0, 0, 0, 0};  // Class 1
+    
+    printf("\n=== Training Loop ===\n");
+    for (u8 epoch = 0; epoch < 100; epoch++) 
+    {
+        // Forward pass
+        ffnn_forward(hl, input);
+        ffnn_forward(ol, hl->a);
+        
+        // Calculate loss (cross-entropy): L = -Σ y_i * log(p_i)
+        float loss = 0.0f;
+        for (u16 i = 0; i < 10; i++) {
+            if (true_output[i] > 0.0f) {  // Only sum over true labels (1s in one-hot)
+                loss -= true_output[i] * fast_log(ol->a[i] + 1e-7f);  // Add epsilon to prevent log(0)
+            }
+        }
+        
+        // Find predicted class (argmax of output)
+        u8 predicted_class = 0;
+        float max_prob = ol->a[0];
+        for (u16 i = 1; i < 10; i++) {
+            if (ol->a[i] > max_prob) {
+                max_prob = ol->a[i];
+                predicted_class = i;
+            }
+        }
+        
+        // Find true class
+        u8 true_class = 0;
+        for (u16 i = 0; i < 10; i++) {
+            if (true_output[i] == 1.0f) {
+                true_class = i;
+                break;
+            }
+        }
+        
+        // Log progress every 10 epochs
+        if (epoch % 10 == 0 || epoch == 99) {
+            printf("Epoch %3d | Loss: %.4f | Predicted: %d (prob=%.4f) | True: %d | %s\n",
+                   epoch, loss, predicted_class, max_prob, true_class,
+                   predicted_class == true_class ? "✓ CORRECT" : "✗ WRONG");
+        }
+        
+        // Backward pass
+        ffnn_backward(ol, true_output);
+        ffnn_backward(hl, ol->dL_dx);
+        
+        // Update weights
+        layer_update_weights(ol, LEARNING_RATE);
+        layer_update_weights(hl, LEARNING_RATE);
+    }
+    
+    // Final accuracy check
+    printf("\n=== Final Test ===\n");
+    ffnn_forward(hl, input);
+    ffnn_forward(ol, hl->a);
+    
+    printf("Final output probabilities:\n");
+    for (u16 i = 0; i < 10; i++) {
+        printf("  Class %d: %.4f %s\n", i, ol->a[i], 
+               true_output[i] == 1.0f ? "<-- TRUE LABEL" : "");
+    }
+    
     arena_release(arena);
     return 0;
 }

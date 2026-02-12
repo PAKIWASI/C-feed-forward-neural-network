@@ -5,10 +5,6 @@
 #include "matrix.h"
 
 
-#ifndef LEARNING_RATE
-    #define LEARNING_RATE 0.001f
-#endif
-
 
 typedef struct Layer {
 
@@ -36,14 +32,9 @@ typedef struct Layer {
 
     b8 is_output_layer;     // flag determines which act/act_deriv function to use
 
-} Layer;
+    Matrix W_T; // transpose of W matrix (needed for backprop)
 
-/*
->>> 136 + 16 * 4 + 786 * 16 * 4 + 16 * 4 + 16 * 4 + 786 * 16 * 4 + 16 * 4 + 16 * 4 + 786 * 4 + 16 * 4
-104272
->>> 104272 / (1024)
-101.828125 KB
-*/
+} Layer;
 
 
 // Factory functions
@@ -53,18 +44,8 @@ Layer* layer_create_output(Arena* arena, u16 m, u16 n);
 // Common operations (work for all layer types)
 // void layer_destroy(Layer* layer);   // NOT NEEDED (use Arena)
 void layer_init_weights_biases(Layer* layer);
-void layer_forward(Layer* layer, const float* x);
-void layer_backward(Layer* layer, const float* dL_da);  // upstream gradient
-void layer_update_weights(Layer* layer);
-
-// Activation functions (implementation details)
-void relu_activate(const float* z, float* a, u16 size);
-void softmax_activate(const float* z, float* a, u16 size);
-
-// Backprop functions (implementation details)
-void relu_deriv(const float* z, const float* dL_da, float* dL_dz, u16 size);
-void softmax_crossentropy_deriv(const float* predicted, 
-        const float* true_label, float* dL_dz, u16 size);  // y  -> true labels
+// forward / backward belong in neural network
+void layer_update_weights(Layer* layer, float learning_rate);
 
 
 #endif // LAYER_H
