@@ -18,9 +18,14 @@ typedef struct {
 ffnn* ffnn_create(Arena* arena, u16* layer_sizes, u8 num_layers,
                   float learning_rate, const char* mnist_path);
 
-void ffnn_forward(ffnn* net);
-void ffnn_backward(ffnn* net, u8 label);
+void ffnn_destroy(ffnn* net);
+
+void ffnn_change_dataset(ffnn* net, const char* dataset_path);
 
 void ffnn_train(ffnn* net);
+
+void ffnn_test(ffnn* net);
+
+b8 ffnn_save_parameters(const ffnn* net, const char* outfile);
 
 #endif // FFNN_H

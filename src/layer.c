@@ -78,7 +78,6 @@ void layer_update_WB(Layer* layer, float learning_rate)
     for (u16 i = 0; i < layer->n; i++) {
         layer->b[i] += -1 * learning_rate * layer->dL_dz[i];
     }
-
 }
 
 /*
@@ -167,7 +166,6 @@ void layer_calc_deriv(Layer* layer, const float* dL_da)
         }
     }
 
-    layer_update_WB(layer, );
 }
 
 

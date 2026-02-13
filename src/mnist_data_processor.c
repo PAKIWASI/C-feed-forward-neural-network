@@ -74,7 +74,7 @@ b8 mnist_load_custom_file(mnist_dataset* set, const char* filepath, Arena* arena
 
     // allocate mem for num of imgs
     u64 m = arena_get_mark(arena);
-    u64 size = set->num_imgs * (MNIST_IMG_SIZE + MNIST_LABEL_SIZE);
+    u64 size = set->num_imgs * ((u64)MNIST_IMG_SIZE + MNIST_LABEL_SIZE);
     set->data = arena_alloc(arena, size);
     LOG("arena allocated %lu", arena_used(arena) - m);
 
@@ -91,7 +91,7 @@ void mnist_print_img(u8* data, u64 index)
     data += (index * (MNIST_IMG_SIZE + MNIST_LABEL_SIZE));
     printf("\n Label: %u\n\n", *data);
 
-    for (u64 i = 0; i < MNIST_IMG_SIZE; i++) {
+    for (u64 i = 0; i < (u64)MNIST_IMG_SIZE; i++) {
         printf("%d ", *(data + i + 1));  // TODO: format ? 
 
         if (i != 0 && i % MNIST_IMG_DIM == 0) {
@@ -196,10 +196,10 @@ b8 mnist_save_custom_file(idx_file* img, idx_file* label, String* outdir)
     u64 label_offset = 0; //MNIST_LABEL_SIZE;
     for (u64 i = 0; i < num_imgs; i++) {
         fwrite(label->data + label_offset, MNIST_LABEL_SIZE, 1, f);
-        fwrite(img->data + img_offset, MNIST_IMG_SIZE, 1, f);
+        fwrite(img->data + img_offset, (u64)MNIST_IMG_SIZE, 1, f);
 
         label_offset += MNIST_LABEL_SIZE;
-        img_offset += MNIST_IMG_SIZE;
+        img_offset += (u64)MNIST_IMG_SIZE;
     }
 
 
