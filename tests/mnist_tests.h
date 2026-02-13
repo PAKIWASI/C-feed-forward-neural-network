@@ -2,11 +2,9 @@
 #define MNIST_TESTS
 
 
-#include "arena.h"
 #include "fast_math.h"
 #include "ffnn.h"
 #include "layer.h"
-#include "mnist_data_processor.h"
 
 #define LEARNING_RATE 0.01f
 
@@ -97,14 +95,14 @@ int test_layer_creation_2(void)
         float input[8] = { 0, 1, 2, 3, 4, 5, 6, 7};
 
         LOG("forward pass");
-        ffnn_forward(hl, (float*)&input);
-        ffnn_forward(ol, hl->a);
+        layer_calc_output(hl, (float*)&input);
+        layer_calc_output(ol, hl->a);
 
         float true_output[10] = { 0, 1, 0, 0, 0, 0, 0, 0, 0, 0 };
 
         LOG("backward pass");
-        ffnn_backward(ol, (float*)true_output);
-        ffnn_backward(hl, ol->dL_dx);
+        layer_calc_deriv(ol, (float*)true_output);
+        layer_calc_deriv(hl, ol->dL_dx);
     }
 
 
@@ -134,8 +132,8 @@ int test_layer_creation_3(void)
     for (u8 epoch = 0; epoch < 100; epoch++) 
     {
         // Forward pass
-        ffnn_forward(hl, input);
-        ffnn_forward(ol, hl->a);
+        layer_calc_output(hl, input);
+        layer_calc_output(ol, hl->a);
         
         // Calculate loss (cross-entropy): L = -Σ y_i * log(p_i)
         float loss = 0.0f;
@@ -172,18 +170,18 @@ int test_layer_creation_3(void)
         }
         
         // Backward pass
-        ffnn_backward(ol, true_output);
-        ffnn_backward(hl, ol->dL_dx);
+        layer_calc_deriv(ol, true_output);
+        layer_calc_deriv(hl, ol->dL_dx);
         
         // Update weights
-        layer_update_weights(ol, LEARNING_RATE);
-        layer_update_weights(hl, LEARNING_RATE);
+        layer_update_WB(ol, LEARNING_RATE);
+        layer_update_WB(hl, LEARNING_RATE);
     }
     
     // Final accuracy check
     printf("\n=== Final Test ===\n");
-    ffnn_forward(hl, input);
-    ffnn_forward(ol, hl->a);
+    layer_calc_output(hl, input);
+    layer_calc_output(ol, hl->a);
     
     printf("Final output probabilities:\n");
     for (u16 i = 0; i < 10; i++) {

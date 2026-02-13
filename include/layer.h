@@ -41,11 +41,11 @@ typedef struct Layer {
 Layer* layer_create_hidden(Arena* arena, u16 m, u16 n);
 Layer* layer_create_output(Arena* arena, u16 m, u16 n);
 
-// Common operations (work for all layer types)
-// void layer_destroy(Layer* layer);   // NOT NEEDED (use Arena)
 void layer_init_weights_biases(Layer* layer);
-// forward / backward belong in neural network
-void layer_update_weights(Layer* layer, float learning_rate);
+void layer_update_WB(Layer* layer, float learning_rate);
+
+void layer_calc_output(Layer* layer, const float* x);
+void layer_calc_deriv(Layer* layer, const float* dL_da);
 
 
 #endif // LAYER_H

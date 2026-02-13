@@ -2,7 +2,6 @@
 #define FFNN_H
 
 #include "gen_vector.h"
-#include "layer.h"
 #include "mnist_data_processor.h"
 
 
@@ -10,18 +9,18 @@
 typedef struct {
     genVec layers;          // of type layer
     float  learning_rate;
-    u16    input_size;      // 786 for mnist
-    u16    output_size;     // 10 for mnist
-    // u8     num_layers;   // info in genVec
-    mnist_dataset set;
+    float* curr_img;        // normalized image, currently passed to forward pass
+    mnist_dataset set;      // grey scale (0-255) u8 pixel images and u8 (0-9) labels
 } ffnn;
 
 
-ffnn* ffnn_create(Arena* arena, u16 input_size, u16 output_size, u16* layer_sizes, u8 num_layers, float learning_rate, const char* mnist_path);
 
+ffnn* ffnn_create(Arena* arena, u16* layer_sizes, u8 num_layers,
+                  float learning_rate, const char* mnist_path);
 
+void ffnn_forward(ffnn* net);
+void ffnn_backward(ffnn* net, u8 label);
 
-void ffnn_forward(Layer* layer, const float* x);
-void ffnn_backward(Layer* layer, const float* dL_da);  // upstream gradient
+void ffnn_train(ffnn* net);
 
 #endif // FFNN_H

@@ -2,7 +2,6 @@
 #define XOR_TEST_H
 
 #include <stdio.h>
-#include "ffnn.h"
 #include "layer.h"
 #include "random.h"
 #include "arena.h"
@@ -105,8 +104,8 @@ int test_xor_network(void)
         // Train on all 4 samples
         for (int sample = 0; sample < 4; sample++) {
             // Forward pass
-            ffnn_forward(hidden, data.inputs[sample]);
-            ffnn_forward(output, hidden->a);
+            layer_calc_output(hidden, data.inputs[sample]);
+            layer_calc_output(output, hidden->a);
             
             // Calculate loss
             float loss = 0.0f;
@@ -123,12 +122,12 @@ int test_xor_network(void)
             if (predicted == expected) { correct++; }
             
             // Backward pass
-            ffnn_backward(output, data.labels[sample]);
-            ffnn_backward(hidden, output->dL_dx);
+            layer_calc_deriv(output, data.labels[sample]);
+            layer_calc_deriv(hidden, output->dL_dx);
             
             // Update weights
-            layer_update_weights(output, LEARNING_RATE);
-            layer_update_weights(hidden, LEARNING_RATE);
+            layer_update_WB(output, LEARNING_RATE);
+            layer_update_WB(hidden, LEARNING_RATE);
         }
         
         float avg_loss = total_loss / 4.0f;
@@ -156,8 +155,8 @@ int test_xor_network(void)
     printf("Testing all XOR combinations:\n\n");
     
     for (int i = 0; i < 4; i++) {
-        ffnn_forward(hidden, data.inputs[i]);
-        ffnn_forward(output, hidden->a);
+        layer_calc_output(hidden, data.inputs[i]);
+        layer_calc_output(output, hidden->a);
         
         print_xor_prediction(data.inputs[i][0], data.inputs[i][1], output->a);
     }
@@ -168,8 +167,8 @@ int test_xor_network(void)
     printf("----------|--------|--------|------------\n");
     
     for (int i = 0; i < 4; i++) {
-        ffnn_forward(hidden, data.inputs[i]);
-        ffnn_forward(output, hidden->a);
+        layer_calc_output(hidden, data.inputs[i]);
+        layer_calc_output(output, hidden->a);
         
         int predicted = (output->a[1] > output->a[0]) ? 1 : 0;
         int expected = ((int)data.inputs[i][0]) ^ ((int)data.inputs[i][1]);
@@ -193,8 +192,8 @@ int test_xor_network(void)
     };
     
     for (int i = 0; i < 5; i++) {
-        ffnn_forward(hidden, test_inputs[i]);
-        ffnn_forward(output, hidden->a);
+        layer_calc_output(hidden, test_inputs[i]);
+        layer_calc_output(output, hidden->a);
         
         int predicted = (output->a[1] > output->a[0]) ? 1 : 0;
         

@@ -1,159 +1,130 @@
 #include "ffnn.h"
-#include "fast_math.h"
+#include "arena.h"
+#include "common.h"
+#include "gen_vector.h"
+#include "layer.h"
+#include "mnist_data_processor.h"
 
 
-
-// Activation functions (implementation details)
-void relu_activate(const float* z, float* a, u16 size);
-void softmax_activate(const float* z, float* a, u16 size);
-
-// Backprop functions (implementation details)
-void relu_deriv(const float* z, const float* dL_da, float* dL_dz, u16 size);
-void softmax_crossentropy_deriv(const float* predicted, 
-        const float* true_label, float* dL_dz, u16 size);  // y  -> true labels
+#define GET_LABEL(net, i) (*((net)->set.data + i))
+#define GET_IMG(net, i) ((net)->set.data + i + 1)
+#define GET_LAYER(net, i) ((Layer*)genVec_get_ptr(&(net)->layers, i))
+#define GET_PREDICTION_ARR(net) (GET_LAYER(net, genVec_size(&net->layers) - 1)->a)
 
 
+void normalize_mnist_img(u8* img, float* normalized_img);
+u8 get_prediction(float* prediction_arr);
 
-/*
-    Forward Propogation
-    
-    z = x * W + b;
 
-    if input is m and curr layer size is n, then weight matrix is n x m
-    so x * W becomes (1 x m) * (n x m), but we will not do a standard xply
-    x gets xplied to every row of W (n rows), each row has a bias (b (1xn))
-
-    This is more cache friendly
-*/
-void ffnn_forward(Layer* layer, const float* x)
+ffnn* ffnn_create(Arena* arena, u16* layer_sizes, u8 num_layers,
+                  float learning_rate, const char* mnist_path)
 {
-    layer->x = (float*)x;   // save ptr to input for backprop
+    ffnn* net = ARENA_ALLOC(arena, ffnn);
 
-    for (u16 i = 0; i < layer->n; i++) {
-        layer->z[i] = 0.0f;
-        for (u16 j = 0; j < layer->m; j++) {
-            layer->z[i] += x[j] * MATRIX_AT(&layer->W, i, j);
+    net->learning_rate = learning_rate;
+    net->curr_img = ARENA_ALLOC_N(arena, float, (u64)MNIST_IMG_SIZE);
+
+    mnist_load_custom_file(&net->set, mnist_path, arena);
+
+    // memory for layers alloced on arena so no copy/move semantics
+    genVec_init_stk(num_layers, sizeof(Layer*), NULL, NULL, NULL, &net->layers);
+
+    Layer* l; 
+    for (u8 i = 0; i < num_layers - 1; i++) {
+        if (i == num_layers - 2) {
+            l = layer_create_output(arena, layer_sizes[i], layer_sizes[i + 1]);
+        } else {
+            l = layer_create_hidden(arena, layer_sizes[i], layer_sizes[i + 1]);
         }
-        layer->z[i] += layer->b[i];
+
+        layer_init_weights_biases(l);
+        genVec_push(&net->layers, castptr(l));
     }
 
-    // Apply activation: a = f(z)
-    if (!layer->is_output_layer) {
-        relu_activate(layer->z, layer->a, layer->n);
-    } else {
-        softmax_activate(layer->z, layer->a, layer->n);
+    return net;
+}
+
+void ffnn_forward(ffnn* net)
+{
+    u64 size = genVec_size(&net->layers);
+    for (u64 i = 0; i < size; i++) {
+        if (i == 0) {
+            // input to fist hidden layer is img
+            layer_calc_output(GET_LAYER(net, i), net->curr_img);
+        } else {
+            // output of prev layer becomes input to next
+            layer_calc_output(GET_LAYER(net, i), GET_LAYER(net, i - 1)->a);
+        }
     }
 }
 
-/*
-    Backward Propogation
-    
-    We get an upstream gradient dL_da
-
-    dL_dz = dL_da * da_dz
-    da_dz = f'(z)
-    dL_dz = dL_da * f'(z)
-
-    need : dL_dW, dL_db, dL_dx
-    we do the derivation of dz_dW, dz_db, dz_dx
-
-    dL_dW = dL_dz * dz_dW = dL_dz * x   (1 x n)T * (1 x m) = (n x m)
-    dL_db = dL_dz * dz_db = dL_dz * 1   (1 x n)
-    dL_dx = dL_dz * dz_dx = dL_dz * W   (1 x n) * (n x m) = (1 x m) - Send downstream
-*/
-void ffnn_backward(Layer* layer, const float* dL_da)
+void ffnn_backward(ffnn* net, u8 label)
 {
-        // get dL_dz
-    if (!layer->is_output_layer) {
-        relu_deriv(layer->z, dL_da, layer->dL_dz, layer->n);
-    }
-    else {
-        // for output layer, dL_da passed is actually the true label array
-        softmax_crossentropy_deriv(layer->a, dL_da, layer->dL_dz, layer->n);
-    }
+    // create the true label array (true label 1, else 0)
+    float true_label[10] = {0};
+    true_label[label] = 1;
 
-    // dL_dW
-    for (u16 i = 0; i < layer->n; i++) {
-
-        for (u16 j = 0; j < layer->m; j++) {
-            // matrix, arrays accessed row wise - good for cache
-            MATRIX_AT(&layer->dL_dW, i, j) = layer->dL_dz[i] * layer->x[j];
-        }
-    }
-
-    //dL_db = dL_dz
-
-    // dL_dx
-    // transpose the matrix for cache friendly access
-    matrix_T(&layer->W_T, &layer->W);    // mat is m x n
-
-    for (u16 i = 0; i < layer->m; i++) {
-        layer->dL_dx[i] = 0.0f;
-        for (u16 j = 0; j < layer->n; j++) {
-            // matrix, arrays accessed row wise - good for cache
-            layer->dL_dx[i] += layer->dL_dz[j] * MATRIX_AT(&layer->W_T, i, j);
+    u64 size = genVec_size(&net->layers);
+    for (u64 i = size - 1; i >= 0; i--) {
+        if (i == size - 1) {
+            layer_calc_deriv(GET_LAYER(net, i), (float*)&true_label);
+        } else {
+            layer_calc_deriv(GET_LAYER(net, i), GET_LAYER(net, i + 1)->dL_dx);
         }
     }
 }
 
 
-
-// Use Leaky ReLu?
-void relu_activate(const float* z, float* a, u16 size)
+void ffnn_train(ffnn* net)
 {
-    for (u16 i = 0; i < size; i++) {
-        a[i] = z[i] >= 0.0f ? z[i] : 0.0f;
+
+    u16 correct = 0;
+    for (u16 i = 0; i < MNIST_TRAIN_SIZE; i++) {
+
+        u8 label = GET_LABEL(net, i);
+
+        // normalize each training example
+        normalize_mnist_img(GET_IMG(net, i), net->curr_img);
+
+        // do forward pass
+        ffnn_forward(net);
+
+        // now 'a' of output layer has the prediction
+        u8 prediction = get_prediction(GET_PREDICTION_ARR(net));
+        if (prediction == label) {
+            correct++;
+        }
+
+        // we do backprop, using true and predicted arrays
+        // Loss calculated internally in output layer
+        ffnn_backward(net, label);
+
+        // update_parameters(net, learning_rate);
     }
 }
 
-void relu_deriv(const float* z, const float* dL_da, float* dL_dz, u16 size)
-{
 
-    for (u16 i = 0; i < size; i++) {
-        // dL_dz[i] = dL_da[i] * ((z[i] >= 0) ? 1.0f : 0.0f);
-        dL_dz[i] = (z[i] >= 0) ? dL_da[i] : 0;  // jacobian
+
+
+void normalize_mnist_img(u8* img, float* normalized_img)
+{
+    for (u16 i = 0; i < MNIST_IMG_SIZE; i++) {
+        normalized_img[i] = (float)img[i] / 255.0f;
     }
 }
 
-void softmax_activate(const float* z, float* a, u16 size)
+u8 get_prediction(float* prediction_arr)
 {
-    // Numerical stability: subtract max to prevent overflow
-    // Prevents overflow when z values are large
-    float max_z = z[0];
-    for (u16 i = 1; i < size; i++) {
-        if (z[i] > max_z) { max_z = z[i]; }
+    float max = -9999;
+    u8 prediction = 10;
+
+    for (u8 i = 0; i < 10; i++) {
+        if (prediction_arr[i] > max) {
+            max = prediction_arr[i];
+            prediction = i;
+        }
     }
-    
-    // Compute exp(z - max) and sum
-    float sum = 0;
-    for (u16 i = 0; i < size; i++) {
-        a[i] = fast_exp(z[i] - max_z);  // Store exp values
-        sum += a[i];
-    }
-    
-    // Normalize
-    for (u16 i = 0; i < size; i++) {
-        a[i] /= sum;
-    }
+
+    return prediction;
 }
-
-/*
-Cross-Entropy Loss:
-L = -Σ y_i × log(p_i)
-where:
-- y_i = true label (one-hot encoded)
-- p_i = predicted probability (softmax output)
-
-When computing dL/dz , the derivative simplifies remarkably:
-
-dL/dz_i = p_i - y_i
-*/
-void softmax_crossentropy_deriv(const float* predicted, 
-                const float* true_label, float* dL_dz, u16 size)
-{
-    for (u16 i = 0; i < size; i++) {
-        dL_dz[i] = predicted[i] - true_label[i];
-    }
-}
-
 
