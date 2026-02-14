@@ -246,6 +246,7 @@ Layer* create_common_layer(Arena* arena, u16 m, u16 n)
     // init to all zeros
     l->b = ARENA_ALLOC_ZERO_N(arena, float, n);
 
+    // we store (n x m) for row wise operations
     l->W.m = n; 
     l->W.n = m; 
     l->W.data = ARENA_ALLOC_N(arena, float, (u64)n * m);
