@@ -1,5 +1,6 @@
 #include "mnist_data_processor.h"
 #include "arena.h"
+#include "common.h"
 #include "idx_file_reader.h"
 #include "String.h"
 
@@ -56,10 +57,9 @@ b8 mnist_prepare_from_idx(const char* data_dir, const char* out_dir)
 b8 mnist_load_custom_file(mnist_dataset* set, const char* filepath, Arena* arena)
 {
     FILE* f = fopen(filepath, "rb");
-    if (!f) {
-        LOG("couldn't open file %s", filepath);
-        return false;
-    }
+    CHECK_WARN_RET(!f, false, "could'nt open file %s", filepath);
+
+    LOG("loading mnist file %s", filepath);
 
     fread(&set->num_imgs, sizeof(u16), 1, f);
     fread(&set->img_w, sizeof(u8), 1, f);
@@ -76,7 +76,7 @@ b8 mnist_load_custom_file(mnist_dataset* set, const char* filepath, Arena* arena
     u64 m = arena_get_mark(arena);
     u64 size = set->num_imgs * (MNIST_IMG_SIZE + MNIST_LABEL_SIZE);
     set->data = arena_alloc(arena, size);
-    LOG("arena allocated %lu", arena_used(arena) - m);
+    LOG("arena allocated %lu for dataset", arena_used(arena) - m);
 
     // read all at once
     fread(set->data, sizeof(u8), size, f);

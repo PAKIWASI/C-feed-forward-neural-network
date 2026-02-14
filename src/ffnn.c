@@ -1,9 +1,8 @@
 #include "ffnn.h"
 #include "common.h"
-#include "gen_vector.h"
 #include "layer.h"
+#include "mnist_data_processor.h"
 #include "random.h"
-#include <stdio.h>
 
 
 
@@ -14,11 +13,12 @@
 // Get image data (starts 1 byte after label)
 #define GET_IMG(net, i) ((net)->set.data + SAMPLE_OFFSET(i) + MNIST_LABEL_SIZE)
 
-#define GET_LAYER(net, i) (*(Layer**)genVec_get_ptr(&(net)->layers, i))       // BUG: source of bug
+#define GET_LAYER(net, i) (*(Layer**)genVec_get_ptr(&(net)->layers, i))
 #define GET_PREDICTION_ARR(net) (GET_LAYER(net, genVec_size(&net->layers) - 1)->a)
 
 
-void ffnn_forward(ffnn* net);
+
+void ffnn_forward(ffnn* net, float* norm_img);
 void ffnn_backward(ffnn* net, u8 label);
 void ffnn_update_parameters(ffnn* net);
 
@@ -33,18 +33,15 @@ ffnn* ffnn_create(u16* layer_sizes, u8 num_layers,
     LOG("creating ffnn");
     LOG("learing_rate set to %f", learning_rate);
     LOG("no of layers: %u", num_layers);
-    LOG("loading file: %s", mnist_path);
 
     ffnn* net = malloc(sizeof(ffnn));
 
     net->main_arena = arena_create(nMB(1));
     LOG("main arena allocted with %lu", arena_remaining(net->main_arena));
-    net->dataset_arena = arena_create(MNIST_TRAIN_SIZE * (MNIST_IMG_SIZE + MNIST_LABEL_SIZE));
+    net->dataset_arena = arena_create(1000 + (MNIST_TRAIN_SIZE * (MNIST_IMG_SIZE + MNIST_LABEL_SIZE)));
     LOG("dataset arena allocted with %lu", arena_remaining(net->dataset_arena));
 
     net->learning_rate = learning_rate;
-
-    net->curr_img = ARENA_ALLOC_N(net->main_arena, float, MNIST_IMG_SIZE);
 
     mnist_load_custom_file(&net->set, mnist_path, net->dataset_arena);
 
@@ -52,7 +49,8 @@ ffnn* ffnn_create(u16* layer_sizes, u8 num_layers,
     genVec_init_stk(num_layers, sizeof(Layer*), NULL, NULL, NULL, &net->layers);
 
     Layer* l; 
-    for (u8 i = 0; i < num_layers - 1; i++) {
+    for (u8 i = 0; i < num_layers - 1; i++) 
+    {
         LOG("layer %u input size: %u, output size %u", i, layer_sizes[i], layer_sizes[i + 1]);
 
         if (i == num_layers - 2) {
@@ -67,6 +65,68 @@ ffnn* ffnn_create(u16* layer_sizes, u8 num_layers,
 
 
     LOG("created ffnn successfully");
+    return net;
+}
+
+
+ffnn* ffnn_create_trained(const char* saved_path, const char* testing_set)
+{
+    LOG("creating ffnn on pre trained parameters"); 
+
+    // open the parameters file
+    FILE* f = fopen(saved_path, "rb");
+    CHECK_WARN_RET(!f, NULL, "couldn't open parameters file %s", saved_path);
+
+    LOG("opened parameters file %s", saved_path);
+
+    ffnn* net = malloc(sizeof(ffnn));
+
+    net->main_arena = arena_create(nMB(1));
+    LOG("main arena allocted with %lu", arena_remaining(net->main_arena));
+    net->dataset_arena = arena_create(1000 + (MNIST_TEST_SIZE * (MNIST_IMG_SIZE + MNIST_LABEL_SIZE)));
+    LOG("dataset arena allocted with %lu", arena_remaining(net->dataset_arena));
+
+    mnist_load_custom_file(&net->set, testing_set, net->dataset_arena);
+
+
+    // read num of layer from file
+    u64 num_layers;
+    fread(&num_layers, sizeof(u64), 1, f);
+    LOG("number of layers: %lu", num_layers);
+
+    // create layer vec
+    genVec_init_stk(num_layers, sizeof(Layer*), NULL, NULL, NULL, &net->layers);
+
+    Layer* l; 
+    for (u64 i = 0; i < num_layers; i++)
+    {
+        // read input size of each layer
+        u16 m;
+        fread(&m, sizeof(u16), 1, f);
+        // read output size of each layer
+        u16 n;
+        fread(&n, sizeof(u16), 1, f);
+
+        LOG("layer %lu input size: %u, output size %u", i, m, n);
+
+        if (i == num_layers - 1) {
+            l = layer_create_output(net->main_arena, m, n);
+        } else {
+            l = layer_create_hidden(net->main_arena, m, n);
+        }
+
+        // read the weights and biases
+        // write weights
+        fread(l->W.data, sizeof(float), (u64)n * m, f);
+        // write biases
+        fread(l->b, sizeof(float), n, f);
+
+        genVec_push(&net->layers, (u8*)&l);
+    }
+
+
+    LOG("created ffnn successfully");
+    fclose(f);
     return net;
 }
 
@@ -95,15 +155,19 @@ void ffnn_train(ffnn* net)
 
     u16 correct = 0;
 
+    // allocate for one normalized (type float) mnist image as buffer for all
+    arena_scratch sc = arena_scratch_begin(net->main_arena);
+    float* norm_img = ARENA_ALLOC_N(net->main_arena, float, MNIST_IMG_SIZE);
+
     for (u16 i = 0; i < net->set.num_imgs; i++) { 
 
         u8 label = GET_LABEL(net, i);
 
         // normalize each training example
-        normalize_mnist_img(GET_IMG(net, i), net->curr_img);
+        normalize_mnist_img(GET_IMG(net, i), norm_img);
 
         // do forward pass
-        ffnn_forward(net);
+        ffnn_forward(net, norm_img);
 
         // now 'a' of output layer has the prediction
         u8 prediction = get_prediction(GET_PREDICTION_ARR(net));
@@ -128,7 +192,10 @@ void ffnn_train(ffnn* net)
     float accuracy = (float)correct / (float)net->set.num_imgs * 100.0f;
     LOG("Training Accuracy: %.2f%% (%u/%u)\n", 
            accuracy, correct, net->set.num_imgs);
+
+    arena_scratch_end(&sc);
 }
+
 
 void ffnn_test(ffnn* net)
 {
@@ -136,13 +203,16 @@ void ffnn_test(ffnn* net)
     
     u16 correct = 0;
     
-    // Don't shuffle for testing - want reproducible results
+    arena_scratch sc = arena_scratch_begin(net->main_arena);
+    float* norm_img = ARENA_ALLOC_N(net->main_arena, float, MNIST_IMG_SIZE);
+
+
     for (u16 i = 0; i < net->set.num_imgs; i++) {
         u8 label = GET_LABEL(net, i);
-        normalize_mnist_img(GET_IMG(net, i), net->curr_img);
+        normalize_mnist_img(GET_IMG(net, i), norm_img);
         
         // Forward pass only (no backprop)
-        ffnn_forward(net);
+        ffnn_forward(net, norm_img);
         
         u8 prediction = get_prediction(GET_PREDICTION_ARR(net));
         if (prediction == label) {
@@ -158,6 +228,8 @@ void ffnn_test(ffnn* net)
     float accuracy = (float)correct / (float)net->set.num_imgs * 100.0f;
     printf("Test Accuracy: %.2f%% (%u/%u)\n", 
            accuracy, correct, net->set.num_imgs);
+
+    arena_scratch_end(&sc);
 }
 
 
@@ -170,14 +242,13 @@ void ffnn_train_batch(ffnn* net, u16 batch_size, u16 num_epochs)
 b8 ffnn_save_parameters(const ffnn* net, const char* outfile)
 {
     FILE* f = fopen(outfile, "wb");
-    if (!f) {
-        LOG("couldn't open parameters file to write");
-        return false;
-    }
+    CHECK_WARN_RET(!f, false, "could'nt open file %s", outfile);
+
     LOG("saving parameters to %s", outfile);
 
     // num of layers
     u64 size = genVec_size(&net->layers);
+    LOG("size : %lu", size);
 
     fwrite(&size, sizeof(u64), 1, f);
 
@@ -186,9 +257,11 @@ b8 ffnn_save_parameters(const ffnn* net, const char* outfile)
         // input size
         u16 m = GET_LAYER(net, i)->m;
         fwrite(&m, sizeof(u16), 1, f);
+        LOG("layer %lu input: %u", i, m);
         // output size
         u16 n = GET_LAYER(net, i)->n;
         fwrite(&n, sizeof(u16), 1, f);
+        LOG("layer %lu input: %u", i, n);
 
         // write weights
         fwrite(GET_LAYER(net, i)->W.data, sizeof(float), (u64)n * m, f);
@@ -200,14 +273,13 @@ b8 ffnn_save_parameters(const ffnn* net, const char* outfile)
     return true;
 }
 
-
-void ffnn_forward(ffnn* net)
+void ffnn_forward(ffnn* net, float* norm_img)
 {
     u64 size = genVec_size(&net->layers);
     for (u64 i = 0; i < size; i++) {
         if (i == 0) {
             // input to fist hidden layer is img
-            layer_calc_output(GET_LAYER(net, i), net->curr_img);
+            layer_calc_output(GET_LAYER(net, i), norm_img);
         } else {
             // output of prev layer becomes input to next
             layer_calc_output(GET_LAYER(net, i), GET_LAYER(net, i - 1)->a);
