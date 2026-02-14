@@ -21,14 +21,14 @@ int main(void)
     pcg32_rand_seed(1234, 1);
 
     ffnn* net = ffnn_create(
-            (u16[4]){784, 256, 10},
-            3,
+            (u16[4]){784, 128, 64, 10}, // TODO:
+            4,
             0.01f, 
             "/home/wasi/Documents/projects/c/ffnn/data/dataset.bin");
 
     ffnn_train(net);
 
-    ffnn_save_parameters(net, "/home/wasi/Documents/projects/c/ffnn/data/256.bin");
+    ffnn_save_parameters(net, "/home/wasi/Documents/projects/c/ffnn/data/128_64.bin");
 
     ffnn_change_dataset(net, "/home/wasi/Documents/projects/c/ffnn/data/testset.bin");
 

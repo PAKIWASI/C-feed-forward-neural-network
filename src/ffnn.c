@@ -3,6 +3,7 @@
 #include "layer.h"
 #include "mnist_data_processor.h"
 #include "random.h"
+#include <stdio.h>
 
 
 
@@ -36,7 +37,7 @@ ffnn* ffnn_create(u16* layer_sizes, u8 num_layers,
 
     ffnn* net = malloc(sizeof(ffnn));
 
-    net->main_arena = arena_create(nMB(1));
+    net->main_arena = arena_create(nMB(5));
     LOG("main arena allocted with %lu", arena_remaining(net->main_arena));
     net->dataset_arena = arena_create(1000 + (MNIST_TRAIN_SIZE * (MNIST_IMG_SIZE + MNIST_LABEL_SIZE)));
     LOG("dataset arena allocted with %lu", arena_remaining(net->dataset_arena));
@@ -65,6 +66,13 @@ ffnn* ffnn_create(u16* layer_sizes, u8 num_layers,
 
 
     LOG("created ffnn successfully");
+    for (u64 i = 0; i < num_layers - 1; i++) {
+        printf("\t%hu", GET_LAYER(net, i)->m);
+        if (i == num_layers - 2) {
+            printf("\t%hu", GET_LAYER(net, i)->n);
+        }
+    }
+    putchar('\n');
     return net;
 }
 
@@ -81,7 +89,7 @@ ffnn* ffnn_create_trained(const char* saved_path, const char* testing_set)
 
     ffnn* net = malloc(sizeof(ffnn));
 
-    net->main_arena = arena_create(nMB(1));
+    net->main_arena = arena_create(nMB(5));
     LOG("main arena allocted with %lu", arena_remaining(net->main_arena));
     net->dataset_arena = arena_create(1000 + (MNIST_TEST_SIZE * (MNIST_IMG_SIZE + MNIST_LABEL_SIZE)));
     LOG("dataset arena allocted with %lu", arena_remaining(net->dataset_arena));
@@ -125,7 +133,16 @@ ffnn* ffnn_create_trained(const char* saved_path, const char* testing_set)
     }
 
 
-    LOG("created ffnn successfully");
+    LOG("created ffnn successfully\nStructure:");
+
+    for (u64 i = 0; i < num_layers; i++) {
+        printf("\t%hu", GET_LAYER(net, i)->m);
+        if (i == num_layers - 1) {
+            printf("\t%hu", GET_LAYER(net, i)->n);
+        }
+    }
+    putchar('\n');
+
     fclose(f);
     return net;
 }
