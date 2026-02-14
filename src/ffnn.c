@@ -1,15 +1,20 @@
 #include "ffnn.h"
-#include "arena.h"
 #include "common.h"
 #include "gen_vector.h"
 #include "layer.h"
-#include "matrix.h"
 #include "random.h"
+#include <stdio.h>
 
 
-#define GET_LABEL(net, i) (*((net)->set.data + i))
-#define GET_IMG(net, i) ((net)->set.data + i + 1)
-#define GET_LAYER(net, i) ((Layer*)genVec_get_ptr(&(net)->layers, i))
+
+// Calculate the byte offset for each sample (label + image = 785 bytes)
+#define SAMPLE_OFFSET(i) ((i) * (MNIST_IMG_SIZE + MNIST_LABEL_SIZE))
+// Get label at the start of each sample
+#define GET_LABEL(net, i) (*((net)->set.data + SAMPLE_OFFSET(i)))
+// Get image data (starts 1 byte after label)
+#define GET_IMG(net, i) ((net)->set.data + SAMPLE_OFFSET(i) + MNIST_LABEL_SIZE)
+
+#define GET_LAYER(net, i) (*(Layer**)genVec_get_ptr(&(net)->layers, i))       // BUG: source of bug
 #define GET_PREDICTION_ARR(net) (GET_LAYER(net, genVec_size(&net->layers) - 1)->a)
 
 
@@ -57,9 +62,11 @@ ffnn* ffnn_create(u16* layer_sizes, u8 num_layers,
         }
 
         layer_init_weights_biases(l);
-        genVec_push(&net->layers, castptr(l));
+        genVec_push(&net->layers, (u8*)&l);
     }
 
+
+    LOG("created ffnn successfully");
     return net;
 }
 
@@ -72,10 +79,20 @@ void ffnn_destroy(ffnn* net)
     free(net);
 }
 
+// switch from training to testing set while trained parameters are in memory
+void ffnn_change_dataset(ffnn* net, const char* dataset_path)
+{
+    arena_clear(net->dataset_arena);
+
+    mnist_load_custom_file(&net->set, dataset_path, net->dataset_arena);
+}
+
 
 
 void ffnn_train(ffnn* net)
 {
+    LOG("begin training ffnn with %u samples", net->set.num_imgs);
+
     u16 correct = 0;
 
     for (u16 i = 0; i < net->set.num_imgs; i++) { 
@@ -103,13 +120,43 @@ void ffnn_train(ffnn* net)
         
         // Progress indicator
         if ((i + 1) % 5000 == 0) {
-            LOG("Processed %u/%u samples\n", i + 1, net->set.num_imgs);
+            LOG("\nProcessed %u/%u samples\n", i + 1, net->set.num_imgs);
         }
     }
     
     // Print accuracy
     float accuracy = (float)correct / (float)net->set.num_imgs * 100.0f;
     LOG("Training Accuracy: %.2f%% (%u/%u)\n", 
+           accuracy, correct, net->set.num_imgs);
+}
+
+void ffnn_test(ffnn* net)
+{
+    LOG("Starting testing on %u samples", net->set.num_imgs);
+    
+    u16 correct = 0;
+    
+    // Don't shuffle for testing - want reproducible results
+    for (u16 i = 0; i < net->set.num_imgs; i++) {
+        u8 label = GET_LABEL(net, i);
+        normalize_mnist_img(GET_IMG(net, i), net->curr_img);
+        
+        // Forward pass only (no backprop)
+        ffnn_forward(net);
+        
+        u8 prediction = get_prediction(GET_PREDICTION_ARR(net));
+        if (prediction == label) {
+            correct++;
+        }
+        
+        // Progress indicator
+        if ((i + 1) % 2000 == 0) {
+            printf("  Tested %u/%u samples\n", i + 1, net->set.num_imgs);
+        }
+    }
+    
+    float accuracy = (float)correct / (float)net->set.num_imgs * 100.0f;
+    printf("Test Accuracy: %.2f%% (%u/%u)\n", 
            accuracy, correct, net->set.num_imgs);
 }
 
@@ -127,6 +174,7 @@ b8 ffnn_save_parameters(const ffnn* net, const char* outfile)
         LOG("couldn't open parameters file to write");
         return false;
     }
+    LOG("saving parameters to %s", outfile);
 
     // num of layers
     u64 size = genVec_size(&net->layers);
@@ -215,7 +263,6 @@ u8 get_prediction(float* prediction_arr)
             prediction = i;
         }
     }
-
     return prediction;
 }
 // Fisher-Yates shuffle algorithm

@@ -5,13 +5,14 @@
 
 
 
-// TODO: use new string reader thing
 
 b8 mnist_load_from_idx(String* data_dir, idx_file** set, Arena* arena);
 b8 mnist_save_custom_file(idx_file* img, idx_file* label, String* outdir);
 
 
 
+// TODO: this function needes internal code changes to switch from train to test
+// need to fix that
 b8 mnist_prepare_from_idx(const char* data_dir, const char* out_dir)
 {
     // Arena* arena = arena_create(MNIST_SIZE_IMG_TRAIN + MNIST_SIZE_LABEL_TRAIN + 1000);
@@ -50,8 +51,6 @@ b8 mnist_prepare_from_idx(const char* data_dir, const char* out_dir)
     arena_release(arena);
     return true;
 }
-
-
 
 
 b8 mnist_load_custom_file(mnist_dataset* set, const char* filepath, Arena* arena)

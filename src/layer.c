@@ -182,7 +182,6 @@ void relu_deriv(const float* z, const float* dL_da, float* dL_dz, u16 size)
 {
 
     for (u16 i = 0; i < size; i++) {
-        // dL_dz[i] = dL_da[i] * ((z[i] >= 0) ? 1.0f : 0.0f);
         dL_dz[i] = (z[i] >= 0) ? dL_da[i] : 0;  // jacobian
     }
 }

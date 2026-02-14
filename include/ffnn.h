@@ -22,7 +22,6 @@ ffnn* ffnn_create(u16* layer_sizes, u8 num_layers,
 
 void ffnn_destroy(ffnn* net);
 
-void ffnn_change_dataset(ffnn* net, const char* dataset_path);
 
 void ffnn_train(ffnn* net);
 
@@ -30,7 +29,9 @@ void ffnn_train_batch(ffnn* net, u16 batch_size, u16 num_epochs);
 
 void ffnn_test(ffnn* net);
 
+void ffnn_change_dataset(ffnn* net, const char* dataset_path);
 b8 ffnn_save_parameters(const ffnn* net, const char* outfile);
+b8 ffnn_load_parameters(const ffnn* net, const char* filepath);
 
 
 #endif // FFNN_H
