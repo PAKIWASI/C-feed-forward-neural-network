@@ -1,7 +1,10 @@
 #include "ffnn.h"
+#include "arena.h"
 #include "common.h"
 #include "gen_vector.h"
 #include "layer.h"
+#include "matrix.h"
+#include "random.h"
 
 
 #define GET_LABEL(net, i) (*((net)->set.data + i))
@@ -16,9 +19,10 @@ void ffnn_update_parameters(ffnn* net);
 
 void normalize_mnist_img(u8* img, float* normalized_img);
 u8 get_prediction(float* prediction_arr);
+void shuffle_indices(u16* indices, u16 size);
 
 
-ffnn* ffnn_create(Arena* arena, u16* layer_sizes, u8 num_layers,
+ffnn* ffnn_create(u16* layer_sizes, u8 num_layers,
                   float learning_rate, const char* mnist_path)
 {
     LOG("creating ffnn");
@@ -26,13 +30,18 @@ ffnn* ffnn_create(Arena* arena, u16* layer_sizes, u8 num_layers,
     LOG("no of layers: %u", num_layers);
     LOG("loading file: %s", mnist_path);
 
-    ffnn* net = ARENA_ALLOC(arena, ffnn);
+    ffnn* net = malloc(sizeof(ffnn));
+
+    net->main_arena = arena_create(nMB(1));
+    LOG("main arena allocted with %lu", arena_remaining(net->main_arena));
+    net->dataset_arena = arena_create(MNIST_TRAIN_SIZE * (MNIST_IMG_SIZE + MNIST_LABEL_SIZE));
+    LOG("dataset arena allocted with %lu", arena_remaining(net->dataset_arena));
 
     net->learning_rate = learning_rate;
 
-    net->curr_img = ARENA_ALLOC_N(arena, float, (u64)MNIST_IMG_SIZE);
+    net->curr_img = ARENA_ALLOC_N(net->main_arena, float, MNIST_IMG_SIZE);
 
-    mnist_load_custom_file(&net->set, mnist_path, arena);
+    mnist_load_custom_file(&net->set, mnist_path, net->dataset_arena);
 
     // memory for layers alloced on arena so no copy/move semantics
     genVec_init_stk(num_layers, sizeof(Layer*), NULL, NULL, NULL, &net->layers);
@@ -42,9 +51,9 @@ ffnn* ffnn_create(Arena* arena, u16* layer_sizes, u8 num_layers,
         LOG("layer %u input size: %u, output size %u", i, layer_sizes[i], layer_sizes[i + 1]);
 
         if (i == num_layers - 2) {
-            l = layer_create_output(arena, layer_sizes[i], layer_sizes[i + 1]);
+            l = layer_create_output(net->main_arena, layer_sizes[i], layer_sizes[i + 1]);
         } else {
-            l = layer_create_hidden(arena, layer_sizes[i], layer_sizes[i + 1]);
+            l = layer_create_hidden(net->main_arena, layer_sizes[i], layer_sizes[i + 1]);
         }
 
         layer_init_weights_biases(l);
@@ -58,6 +67,9 @@ ffnn* ffnn_create(Arena* arena, u16* layer_sizes, u8 num_layers,
 void ffnn_destroy(ffnn* net)
 {
     genVec_destroy_stk(&net->layers);
+    arena_release(net->main_arena);
+    arena_release(net->dataset_arena);
+    free(net);
 }
 
 
@@ -66,7 +78,7 @@ void ffnn_train(ffnn* net)
 {
     u16 correct = 0;
 
-    for (u16 i = 0; i < MNIST_TRAIN_SIZE; i++) {
+    for (u16 i = 0; i < net->set.num_imgs; i++) { 
 
         u8 label = GET_LABEL(net, i);
 
@@ -88,7 +100,23 @@ void ffnn_train(ffnn* net)
 
         // now we update all W & b using gradients
         ffnn_update_parameters(net);
+        
+        // Progress indicator
+        if ((i + 1) % 5000 == 0) {
+            LOG("Processed %u/%u samples\n", i + 1, net->set.num_imgs);
+        }
     }
+    
+    // Print accuracy
+    float accuracy = (float)correct / (float)net->set.num_imgs * 100.0f;
+    LOG("Training Accuracy: %.2f%% (%u/%u)\n", 
+           accuracy, correct, net->set.num_imgs);
+}
+
+
+void ffnn_train_batch(ffnn* net, u16 batch_size, u16 num_epochs)
+{
+
 }
 
 
@@ -120,6 +148,7 @@ b8 ffnn_save_parameters(const ffnn* net, const char* outfile)
         fwrite(GET_LAYER(net, i)->b, sizeof(float), n, f);
     }
 
+    fclose(f);
     return true;
 }
 
@@ -138,6 +167,7 @@ void ffnn_forward(ffnn* net)
     }
 }
 
+
 void ffnn_backward(ffnn* net, u8 label)
 {
     // create the true label array (true label 1, else 0)
@@ -145,14 +175,18 @@ void ffnn_backward(ffnn* net, u8 label)
     true_label[label] = 1;
 
     u64 size = genVec_size(&net->layers);
-    for (u64 i = size - 1; i >= 0; i--) {
-        if (i == size - 1) {
-            layer_calc_deriv(GET_LAYER(net, i), (float*)&true_label);
+    
+    for (u64 i = 0; i < size; i++) {
+        u64 idx = size - 1 - i;  // Calculate actual index
+        
+        if (idx == size - 1) {
+            layer_calc_deriv(GET_LAYER(net, idx), (float*)&true_label);
         } else {
-            layer_calc_deriv(GET_LAYER(net, i), GET_LAYER(net, i + 1)->dL_dx);
+            layer_calc_deriv(GET_LAYER(net, idx), GET_LAYER(net, idx + 1)->dL_dx);
         }
     }
 }
+
 
 void ffnn_update_parameters(ffnn* net)
 {
@@ -165,7 +199,7 @@ void ffnn_update_parameters(ffnn* net)
 
 void normalize_mnist_img(u8* img, float* normalized_img)
 {
-    for (u16 i = 0; i < MNIST_IMG_SIZE; i++) {
+    for (u64 i = 0; i < MNIST_IMG_SIZE; i++) {
         normalized_img[i] = (float)img[i] / 255.0f;
     }
 }
@@ -184,3 +218,19 @@ u8 get_prediction(float* prediction_arr)
 
     return prediction;
 }
+// Fisher-Yates shuffle algorithm
+void shuffle_indices(u16* indices, u16 size)
+{
+    for (u16 i = size - 1; i > 0; i--) {
+        // Generate random index from 0 to i (inclusive)
+        u16 j = (u16)pcg32_rand_bounded(i + 1);
+        
+        // Swap indices[i] and indices[j]
+        indices[i] ^= indices[j];
+        indices[j] ^= indices[i];
+        indices[i] ^= indices[j];
+    }
+}
+
+
+

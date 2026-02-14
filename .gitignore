@@ -4,6 +4,7 @@ build/
 
 ./data/dataset.bin
 dataset.bin
+testset.bin
 label_img.bin
 
 

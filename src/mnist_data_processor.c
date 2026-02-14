@@ -1,4 +1,5 @@
 #include "mnist_data_processor.h"
+#include "arena.h"
 #include "idx_file_reader.h"
 #include "String.h"
 
@@ -13,8 +14,8 @@ b8 mnist_save_custom_file(idx_file* img, idx_file* label, String* outdir);
 
 b8 mnist_prepare_from_idx(const char* data_dir, const char* out_dir)
 {
-    Arena* arena = arena_create(MNIST_SIZE_IMG_TRAIN + MNIST_SIZE_LABEL_TRAIN + 1000);
-
+    // Arena* arena = arena_create(MNIST_SIZE_IMG_TRAIN + MNIST_SIZE_LABEL_TRAIN + 1000);
+    Arena* arena = arena_create(MNIST_SIZE_IMG_TEST + MNIST_SIZE_LABEL_TEST + 1000);
     LOG("arena alloced size: %lu\n", arena->size);
 
     // Read IDX input files (img + label), convert to correct byte order
@@ -74,7 +75,7 @@ b8 mnist_load_custom_file(mnist_dataset* set, const char* filepath, Arena* arena
 
     // allocate mem for num of imgs
     u64 m = arena_get_mark(arena);
-    u64 size = set->num_imgs * ((u64)MNIST_IMG_SIZE + MNIST_LABEL_SIZE);
+    u64 size = set->num_imgs * (MNIST_IMG_SIZE + MNIST_LABEL_SIZE);
     set->data = arena_alloc(arena, size);
     LOG("arena allocated %lu", arena_used(arena) - m);
 
@@ -91,7 +92,7 @@ void mnist_print_img(u8* data, u64 index)
     data += (index * (MNIST_IMG_SIZE + MNIST_LABEL_SIZE));
     printf("\n Label: %u\n\n", *data);
 
-    for (u64 i = 0; i < (u64)MNIST_IMG_SIZE; i++) {
+    for (u64 i = 0; i < MNIST_IMG_SIZE; i++) {
         printf("%d ", *(data + i + 1));  // TODO: format ? 
 
         if (i != 0 && i % MNIST_IMG_DIM == 0) {
@@ -120,7 +121,7 @@ b8 mnist_load_from_idx(String* data_dir, idx_file** set, Arena* arena)
     };
 
     // only run for first 2 (train data + lables)
-    for (u8 i = 0; i < 2; i++) {
+    for (u8 i = 2; i < 4; i++) {    // now running for testing
 
         // appending filename to directory str
         string_append_cstr(data_dir, files[i]);
@@ -130,13 +131,13 @@ b8 mnist_load_from_idx(String* data_dir, idx_file** set, Arena* arena)
 
         LOG("Reading file %s", full_path);
 
-        if (!idx_read_file(set[i], full_path, arena)) {
+        if (!idx_read_file(set[i - 2], full_path, arena)) {
             LOG("Read Error file %s", full_path);
             return false;
         }
 
         // (DEBUG) Print first image
-        print_hex(set[i]->data, (u64)28 * 28, 28);
+        print_hex(set[i - 2]->data, (u64)28 * 28, 28);
 
         // this also removes null term
         string_remove_range(data_dir, path_str_len, string_len(data_dir));
@@ -196,10 +197,10 @@ b8 mnist_save_custom_file(idx_file* img, idx_file* label, String* outdir)
     u64 label_offset = 0; //MNIST_LABEL_SIZE;
     for (u64 i = 0; i < num_imgs; i++) {
         fwrite(label->data + label_offset, MNIST_LABEL_SIZE, 1, f);
-        fwrite(img->data + img_offset, (u64)MNIST_IMG_SIZE, 1, f);
+        fwrite(img->data + img_offset, MNIST_IMG_SIZE, 1, f);
 
         label_offset += MNIST_LABEL_SIZE;
-        img_offset += (u64)MNIST_IMG_SIZE;
+        img_offset += MNIST_IMG_SIZE;
     }
 
 

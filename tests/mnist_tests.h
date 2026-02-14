@@ -3,8 +3,8 @@
 
 
 #include "fast_math.h"
-#include "ffnn.h"
 #include "layer.h"
+#include "mnist_data_processor.h"
 
 #define LEARNING_RATE 0.01f
 
