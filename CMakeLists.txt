@@ -9,9 +9,9 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 message(STATUS "C Compiler: ${CMAKE_C_COMPILER}")
 
-# Default to Debug if not specified
+# Default to Release if not specified
 if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type" FORCE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")

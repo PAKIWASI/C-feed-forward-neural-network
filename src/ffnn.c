@@ -26,6 +26,18 @@ u8 get_prediction(float* prediction_arr);
 void shuffle_indices(u16* indices, u16 size);
 
 
+// accumilator gradients for batch training
+typedef struct {
+    Matrix dL_dW; // (n x m) - How much current layer's weights effect Loss. (How to change weights to reduce loss)
+    float* dL_dz; // (1 x n) - dL_dz = dL_db
+} batch_gradients;
+
+void batch_gradients_init(Arena* arena, batch_gradients* bg, Layer* l);
+void batch_gradients_clear(batch_gradients* bg);
+
+
+
+
 ffnn* ffnn_create(u16* layer_sizes, u8 num_layers,
                   float learning_rate, const char* mnist_path)
 {
@@ -202,6 +214,12 @@ void ffnn_train(ffnn* net)
         if ((i + 1) % 5000 == 0) {
             LOG("\n\tProcessed %u/%u samples\n", i + 1, net->set.num_imgs);
         }
+
+        // if ((i + 1) % LEARN_DECAY_AFTER == 0) {
+        //     net->learning_rate *= LEARN_DECAY_RATE; 
+        //     printf("learning rate %f\n", net->learning_rate);
+        // }
+
     }
     
     // Print accuracy
@@ -249,70 +267,164 @@ void ffnn_test(ffnn* net)
 }
 
 
-
-void ffnn_train_batch(ffnn* net, u16 batch_size, u16 num_epochs)
+/*
+For each epoch:
+    Shuffle training data
+    
+    For each batch:
+        Clear gradient accumulators (set to zero)
+        
+        For each example in batch:
+            Forward pass
+            Backward pass (compute gradients)
+            Add gradients to accumulators
+        
+        Average accumulated gradients by batch size
+        Update weights using averaged gradients
+*/
+void ffnn_train_batch_epochs(ffnn* net, u16 batch_size, u16 num_epochs)
 {
+    CHECK_FATAL(batch_size == 0, "batch size can't be 0");
+    CHECK_FATAL(batch_size > net->set.num_imgs, "batch size larger than dataset");
+    CHECK_FATAL(num_epochs == 0, "num_epochs can't be 0");
+
+    const u16 num_batches = net->set.num_imgs / batch_size;
+    const u16 remainder = net->set.num_imgs % batch_size;
+
+    LOG("Started batch training with multiple epochs:");
+    LOG("  Total samples: %u", net->set.num_imgs);
+    LOG("  Batch size: %u", batch_size);
+    LOG("  Batches per epoch: %u", num_batches);
+    LOG("  Remainder samples: %u", remainder);
+    LOG("  Number of epochs: %u", num_epochs);
+
+    // Allocate gradient accumulators
     arena_scratch sc = arena_scratch_begin(net->main_arena);
-    float* norm_img = ARENA_ALLOC_N(net->main_arena, float, MNIST_IMG_SIZE);
-    u16* indices = ARENA_ALLOC_N(net->main_arena, u16, net->set.num_imgs);
-    
-    // Initialize indices
-    for (u16 i = 0; i < net->set.num_imgs; i++) {
-        indices[i] = i;
+
+    genVec gradients;
+    genVec_init_stk(net->layers.size, sizeof(batch_gradients), NULL, NULL, NULL, &gradients);
+
+    for (u64 i = 0; i < net->layers.size; i++) {
+        batch_gradients bg;
+        batch_gradients_init(net->main_arena, &bg, GET_LAYER(net, i));
+        genVec_push(&gradients, (u8*)&bg);
     }
+
+    genVec indices;
+    genVec_init_stk(net->set.num_imgs, sizeof(u16), NULL, NULL, NULL, &indices);
+    for (u16 i = 0; i < net->set.num_imgs; i++) {
+        u16 idx = i;
+        genVec_push(&indices, (u8*)&idx);
+    }
+
+    float* norm_img = ARENA_ALLOC_N(net->main_arena, float, MNIST_IMG_SIZE);
+    float best_accuracy = 0.0f;
     
+    // EPOCH LOOP
     for (u16 epoch = 0; epoch < num_epochs; epoch++) 
     {
-        shuffle_indices(indices, net->set.num_imgs);
-        u16 correct = 0;
+        LOG("\n=== Epoch %u/%u ===", epoch + 1, num_epochs);
         
-        for (u16 batch_start = 0; batch_start < net->set.num_imgs; batch_start += batch_size) 
+        shuffle_indices((u16*)genVec_front(&indices), (u16)genVec_size(&indices));
+        
+        u16 epoch_correct = 0;
+        
+        // BATCH LOOP - Process all complete batches
+        for (u16 batch = 0; batch < num_batches; batch++) 
         {
-            u16 batch_end = (batch_start + batch_size > net->set.num_imgs) 
-                ? net->set.num_imgs : batch_start + batch_size;
-            u16 actual_batch_size = batch_end - batch_start;
+            u16 current_batch_size = batch_size;
+            u16 batch_start_idx = batch * batch_size;
             
-            // Zero out gradient accumulator
-            for (u64 i = 0; i < genVec_size(&net->layers); i++) 
-            {
-                Layer* layer = GET_LAYER(net, i);
-                memset(layer->dL_dW.data, 0, sizeof(float) * layer->m * layer->n);
-                memset(layer->dL_dz, 0, sizeof(float) * layer->n);
+            // If this is the last batch and there's a remainder, include it
+            if (batch == num_batches - 1 && remainder > 0) {
+                current_batch_size += remainder;
             }
-            
-            // Accumulate gradients over batch
-            for (u16 i = batch_start; i < batch_end; i++) {
-                u16 idx = indices[i];
-                u8 label = GET_LABEL(net, idx);
-                normalize_mnist_img(GET_IMG(net, idx), norm_img);
+
+            // Clear gradient accumulators
+            for (u64 layer_idx = 0; layer_idx < net->layers.size; layer_idx++) {
+                batch_gradients* bg = (batch_gradients*)genVec_get_ptr(&gradients, layer_idx);
+                batch_gradients_clear(bg);
+            }
+
+            // Process samples in current batch
+            for (u16 sample_in_batch = 0; sample_in_batch < current_batch_size; sample_in_batch++) 
+            {
+                u16 dataset_idx = *(u16*)genVec_get_ptr(&indices, 
+                                                        batch_start_idx + sample_in_batch);
+                
+                u8 label = GET_LABEL(net, dataset_idx);
+                normalize_mnist_img(GET_IMG(net, dataset_idx), norm_img);
                 
                 ffnn_forward(net, norm_img);
+                
                 u8 prediction = get_prediction(GET_PREDICTION_ARR(net));
-                if (prediction == label) { correct++; }
+                if (prediction == label) {
+                    epoch_correct++;
+                }
                 
                 ffnn_backward(net, label);
-                // Note: Gradients are accumulated in layer_calc_deriv
+                
+                // Accumulate gradients
+                for (u64 layer_idx = 0; layer_idx < net->layers.size; layer_idx++) 
+                {
+                    Layer* layer = GET_LAYER(net, layer_idx);
+                    batch_gradients* bg = (batch_gradients*)genVec_get_ptr(&gradients, layer_idx);
+                    
+                    u64 total_weights = (u64)layer->n * layer->m;
+                    for (u64 w = 0; w < total_weights; w++) {
+                        bg->dL_dW.data[w] += layer->dL_dW.data[w];
+                    }
+                    
+                    for (u16 n = 0; n < layer->n; n++) {
+                        bg->dL_dz[n] += layer->dL_dz[n];
+                    }
+                }
             }
             
-            // Update parameters with averaged gradients
-            float scale = 1.0f / (float)actual_batch_size;
-            for (u64 i = 0; i < genVec_size(&net->layers); i++) {
-                Layer* layer = GET_LAYER(net, i);
-                // Scale accumulated gradients
-                for (u64 j = 0; j < (u64)layer->m * layer->n; j++) {
-                    layer->dL_dW.data[j] *= scale;
+            // Average and update weights using current_batch_size
+            for (u64 layer_idx = 0; layer_idx < net->layers.size; layer_idx++) 
+            {
+                Layer* layer = GET_LAYER(net, layer_idx);
+                batch_gradients* bg = (batch_gradients*)genVec_get_ptr(&gradients, layer_idx);
+                
+                float inv_batch_size = 1.0f / (float)current_batch_size;
+                
+                u64 total_weights = (u64)layer->n * layer->m;
+                for (u64 w = 0; w < total_weights; w++) {
+                    layer->W.data[w] -= net->learning_rate * bg->dL_dW.data[w] * inv_batch_size;
                 }
-                for (u16 j = 0; j < layer->n; j++) {
-                    layer->dL_dz[j] *= scale;
+                
+                for (u16 n = 0; n < layer->n; n++) {
+                    layer->b[n] -= net->learning_rate * bg->dL_dz[n] * inv_batch_size;
                 }
-                layer_update_WB(layer, net->learning_rate);
+            }
+            
+            // Progress within epoch
+            if ((batch + 1) % 100 == 0) {
+                u32 samples_processed = (batch * batch_size) + 
+                                       (batch == num_batches - 1 && remainder > 0 ? 
+                                        current_batch_size : batch_size);
+                float current_acc = (float)epoch_correct / (float)samples_processed * 100.0f;
+                printf("    Batch %u/%u (%.2f%%)\n", batch + 1, num_batches, current_acc);
             }
         }
         
-        float accuracy = (float)correct / (float)net->set.num_imgs * 100.0f;
-        LOG("Epoch %u/%u - Accuracy: %.2f%%", epoch + 1, num_epochs, accuracy);
+        // Epoch summary
+        float epoch_accuracy = (float)epoch_correct / (float)net->set.num_imgs * 100.0f;
+        LOG("Epoch %u Complete: Accuracy = %.2f%% (%u/%u)", 
+            epoch + 1, epoch_accuracy, epoch_correct, net->set.num_imgs);
+        
+        if (epoch_accuracy > best_accuracy) {
+            best_accuracy = epoch_accuracy;
+            LOG("  New best accuracy! ");
+        }
     }
     
+    LOG("\n=== Training Complete ===");
+    LOG("Best Accuracy: %.2f%%", best_accuracy);
+    
+    genVec_destroy_stk(&gradients);
+    genVec_destroy_stk(&indices);
     arena_scratch_end(&sc);
 }
 
@@ -415,12 +527,13 @@ u8 get_prediction(float* prediction_arr)
     }
     return prediction;
 }
+
 // Fisher-Yates shuffle algorithm
 void shuffle_indices(u16* indices, u16 size)
 {
     for (u16 i = size - 1; i > 0; i--) {
         // Generate random index from 0 to i (inclusive)
-        u16 j = (u16)pcg32_rand_bounded(i + 1);
+        u16 j = (u16)pcg32_rand_bounded(i + 1);     // TODO: is this the right func?
         
         // Swap indices[i] and indices[j]
         indices[i] ^= indices[j];
@@ -429,5 +542,18 @@ void shuffle_indices(u16* indices, u16 size)
     }
 }
 
+void batch_gradients_init(Arena* arena, batch_gradients* bg, Layer* l)
+{
+    memcpy(&bg->dL_dW, &l->dL_dW, sizeof(l->dL_dW));
+    bg->dL_dW.data = ARENA_ALLOC_ZERO_N(arena, float, (u64)l->n * l->m);
 
+    bg->dL_dz = ARENA_ALLOC_ZERO_N(arena, float, l->n);
+}
+
+void batch_gradients_clear(batch_gradients* bg)
+{
+    memset(bg->dL_dW.data, 0, sizeof(float) * bg->dL_dW.m * bg->dL_dW.n);
+
+    memset(bg->dL_dz, 0, sizeof(float) * bg->dL_dW.n);
+}
 
