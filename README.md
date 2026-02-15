@@ -1,6 +1,7 @@
 # Feed-Forward Neural Network (FFNN) for MNIST
 
-A high-performance, from-scratch implementation of a fully-connected neural network in C for handwritten digit recognition using the MNIST dataset.
+A high-performance, from-scratch implementation of a feed forward neural network in C for handwritten digit recognition using the MNIST dataset.
+No Libraries (Not even Math)
 
 ## Overview
 
@@ -643,7 +644,7 @@ ffnn_train_batch_epochs(net, 32, 5);
 
 ### Core Libraries
 
-- **Standard C Library** - stdio, stdlib, string, math
+- **Standard C Library** - stdio, stdlib, string
 - **WCtoolkit** - Custom implementations:
   - `Arena` - Memory allocator
   - `genVec` - Generic vector (dynamic array)
@@ -657,21 +658,15 @@ ffnn_train_batch_epochs(net, 32, 5);
   - Drawing primitives
   - Mouse/keyboard input
 
-### Build Tools
-
-- **CMake** (≥3.20)
-- **Clang** or GCC
-- **Make** or Ninja
-
 ---
 
 ## Limitations and Future Work
 
 ### Current Limitations
 
+- Can't really make 100% working MNIST-like images in the gui
 - No dropout regularization
 - No batch normalization
-- Single-threaded (no parallelization)
 - No GPU acceleration
 - Fixed to MNIST format only
 - No convolutional layers

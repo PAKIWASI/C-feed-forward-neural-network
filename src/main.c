@@ -22,15 +22,15 @@ int main(void)
     pcg32_rand_seed(1234, 1);
 
     ffnn* net = ffnn_create(
-            (u16[5]){784, 256, 128, 64, 10},
-            5,
-            0.005f, 
+            (u16[3]){784, 256, 10},
+            3,
+            0.01f, 
             "data/dataset.bin");
 
     ffnn_train(net);
     // ffnn_train_batch_epochs(net, 64, 4);
 
-    ffnn_save_parameters(net, "data/256_128_64.bin");
+    ffnn_save_parameters(net, "data/256.bin");
 
     ffnn_change_dataset(net, "data/testset.bin");
 

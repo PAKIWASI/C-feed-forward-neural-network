@@ -10,7 +10,7 @@
 #define CANVAS_SIZE 28
 #define SCALE 25              
 #define WINDOW_SIZE (CANVAS_SIZE * SCALE)  // 700x700
-#define UI_HEIGHT 160
+#define UI_HEIGHT 180  
 
 // Gaussian brush parameters
 #define DEFAULT_BRUSH_RADIUS 1.5f
@@ -18,10 +18,17 @@
 #define MAX_BRUSH_RADIUS 3.0f
 
 // Prediction panel
-#define PREDICTION_PANEL_WIDTH 320
+#define PREDICTION_PANEL_WIDTH 350  
 
 #define TOTAL_WINDOW_WIDTH (WINDOW_SIZE + PREDICTION_PANEL_WIDTH)
 #define WINDOW_HEIGHT (WINDOW_SIZE + UI_HEIGHT)  // Total height including UI
+
+// UI Colors
+#define UI_BG_COLOR ((Color){25, 25, 25, 255})
+#define PANEL_BG_COLOR ((Color){20, 20, 20, 255})
+#define ACCENT_COLOR ((Color){100, 200, 100, 255})
+#define GRID_COLOR ((Color){60, 60, 60, 255})
+
 
 
 // CANVAS STRUCTURE

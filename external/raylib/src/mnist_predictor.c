@@ -74,22 +74,24 @@ void render_canvas(Canvas* canvas)
             DrawRectangle(
                 x * SCALE, 
                 y * SCALE, 
-                SCALE, 
-                SCALE, 
+                SCALE - 1,  // -1 gap for better visibility
+                SCALE - 1, 
                 pixel_color
             );
         }
     }
 
-
-    // Draw grid 
+    // Draw grid
     for (int i = 0; i <= CANVAS_SIZE; i++)
     {
-        DrawLine(i * SCALE, 0, i * SCALE, WINDOW_SIZE, 
-                 (Color){40, 40, 40, 255});
-        DrawLine(0, i * SCALE, WINDOW_SIZE, i * SCALE, 
-                 (Color){40, 40, 40, 255});
+        // Vertical lines
+        DrawLine(i * SCALE, 0, i * SCALE, WINDOW_SIZE, GRID_COLOR);
+        // Horizontal lines
+        DrawLine(0, i * SCALE, WINDOW_SIZE, i * SCALE, GRID_COLOR);
     }
+    
+    // Draw border around canvas
+    DrawRectangleLines(0, 0, WINDOW_SIZE, WINDOW_SIZE, ACCENT_COLOR);
 }
 
 void save_canvas(Canvas* canvas, const char* filename)
@@ -106,46 +108,78 @@ void save_canvas(Canvas* canvas, const char* filename)
     fclose(f);
 }
 
+void draw_brush_preview(float brush_radius, int x, int y)
+{
+    // Draw outer ring
+    DrawCircleLines(x, y, brush_radius * 6, ACCENT_COLOR);
+    
+    // Draw inner filled circle with transparency
+    Color preview_color = ACCENT_COLOR;
+    preview_color.a = 100;
+    DrawCircle(x, y, brush_radius * 5, preview_color);
+    
+    // Draw center dot
+    DrawCircle(x, y, 2, WHITE);
+}
+
 void draw_ui(float brush_radius, int save_count)
 {
-    int ui_y = WINDOW_SIZE + 5;
+    int ui_y = WINDOW_SIZE;
+    int padding = 15;
     
-    // Background                   // TODO: + 30 here too
-    DrawRectangle(0, WINDOW_SIZE, TOTAL_WINDOW_WIDTH + 30, UI_HEIGHT, (Color){30, 30, 30, 255});
+    // Background
+    DrawRectangle(0, ui_y, TOTAL_WINDOW_WIDTH, UI_HEIGHT + padding, UI_BG_COLOR);
     
-    // Title and instructions 
-    DrawText("MNIST Live Predictor", 10, ui_y, 18, WHITE);
-    DrawText("Left Mouse: Draw | C: Clear | S: Save | +/-: Brush", 
-             10, ui_y + 25, 13, GRAY);
+    // Top border line
+    DrawLine(0, ui_y, TOTAL_WINDOW_WIDTH, ui_y, ACCENT_COLOR);
     
-    // Brush info
-    char brush_text[64];
-    snprintf(brush_text, sizeof(brush_text), "Brush: %.2f", brush_radius);
-    DrawText(brush_text, 10, ui_y + 45, 14, GREEN);
+    // Title with larger font
+    DrawText("MNIST LIVE PREDICTOR", padding, ui_y + padding, 28, ACCENT_COLOR);
 
-    // Save count
-    char save_text[64];
-    snprintf(save_text, sizeof(save_text), "Saved: %d", save_count);
-    DrawText(save_text, 120, ui_y + 45, 14, YELLOW);
-
-    // Preview of brush - moved to right side
-    int preview_x = WINDOW_SIZE - 100;
-    int preview_y = ui_y + 35;
-    DrawText("Brush:", preview_x - 50, preview_y - 5, 12, LIGHTGRAY);
-    DrawCircle(preview_x, preview_y, brush_radius * 4, WHITE);  // Reduced from *5 to *4
+    // Instructions in two lines with larger font
+    DrawText("Left Mouse: Draw   |   C: Clear   |   S: Save", 
+             padding, ui_y + padding + 35, 16, LIGHTGRAY);
+    DrawText("+ / -: Adjust Brush Size   |   ESC: Exit", 
+             padding, ui_y + padding + 55, 16, LIGHTGRAY);
+    
+    // Brush info panel - moved to right side
+    int panel_x = WINDOW_SIZE - 200;
+    
+    // Brush size indicator
+    DrawText("BRUSH SIZE:", panel_x, ui_y + padding, 14, WHITE);
+    
+    char brush_text[32];
+    snprintf(brush_text, sizeof(brush_text), "%.2f", brush_radius);
+    
+    // Draw brush size value
+    int text_width = MeasureText(brush_text, 24);
+    DrawText(brush_text, panel_x + 120 - (text_width/2), ui_y + padding + 5, 24, ACCENT_COLOR);
+    
+    // Brush preview
+    draw_brush_preview(brush_radius, panel_x + 80, ui_y + padding + 55);
+    
+    // Save count with icon-like display
+    DrawText("SAVES:", panel_x - 120, ui_y + padding, 14, WHITE);
+    
+    char save_text[32];
+    snprintf(save_text, sizeof(save_text), "%03d", save_count);
+    DrawText(save_text, panel_x - 120, ui_y + padding + 20, 28, YELLOW);
 }
 
 void draw_prediction_panel(LivePredictor* pred)
 {
     int panel_x = WINDOW_SIZE;
     int panel_y = 0;
+    int padding = 20;
     
-    // Background                               // TODO: why tf is padding here on right? +30 fixes it
-    DrawRectangle(panel_x, panel_y, PREDICTION_PANEL_WIDTH + 30, WINDOW_HEIGHT, 
-                   (Color){20, 20, 20, 255});
-
+    // Background
+    DrawRectangle(panel_x, panel_y, PREDICTION_PANEL_WIDTH, WINDOW_HEIGHT, PANEL_BG_COLOR);
+    
+    // Left border
+    DrawLine(panel_x, 0, panel_x, WINDOW_HEIGHT, ACCENT_COLOR);
+    
     // Title
-    DrawText("PREDICTION", panel_x + 30, 20, 28, WHITE);
+    DrawText("PREDICTION", panel_x + padding, padding, 32, WHITE);
     
     // Main prediction display
     if (pred->predicted_digit >= 0) {
@@ -153,46 +187,65 @@ void draw_prediction_panel(LivePredictor* pred)
         snprintf(digit_str, sizeof(digit_str), "%d", pred->predicted_digit);
         
         // Large digit - centered
-        int digit_x = panel_x + (PREDICTION_PANEL_WIDTH / 2) - 40;
-        DrawText(digit_str, digit_x, 80, 120, GREEN);
+        int digit_size = 120;
+        int digit_x = panel_x + (PREDICTION_PANEL_WIDTH / 2) - (digit_size / 3);
+        DrawText(digit_str, digit_x, 80, digit_size, ACCENT_COLOR);
         
-        // Confidence below digit
+        // Confidence below digit with better formatting
         char conf_str[32];
-        snprintf(conf_str, sizeof(conf_str), "%.1f%%", pred->confidence * 100.0f);
-        int conf_x = panel_x + (PREDICTION_PANEL_WIDTH / 2) - 40;
-        DrawText(conf_str, conf_x, 210, 24, LIGHTGRAY);
+        snprintf(conf_str, sizeof(conf_str), "Confidence: %.1f%%", pred->confidence * 100.0f);
+        int conf_x = panel_x + (PREDICTION_PANEL_WIDTH / 2) - (MeasureText(conf_str, 20) / 2);
+        DrawText(conf_str, conf_x, 210, 20, LIGHTGRAY);
+        
+        // Confidence bar
+        int bar_width = (int)(pred->confidence * (float)(PREDICTION_PANEL_WIDTH - (2 * padding)));
+        DrawRectangle(panel_x + padding, 240, bar_width, 6, ACCENT_COLOR);
+        DrawRectangleLines(panel_x + padding, 240, PREDICTION_PANEL_WIDTH - (2 * padding), 6, DARKGRAY);
     } else {
-        DrawText("Draw a", panel_x + 105, 120, 24, GRAY);
-        DrawText("digit!", panel_x + 110, 150, 24, GRAY);
+        DrawText("Draw a", panel_x + 100, 120, 28, GRAY);
+        DrawText("digit!", panel_x + 105, 160, 32, GRAY);
+        
+        // Hint
+        DrawText("0-9", panel_x + 130, 210, 48, DARKGRAY);
     }
 
     // Separator line
-    DrawLine(panel_x, 250, panel_x + PREDICTION_PANEL_WIDTH, 250, DARKGRAY);
+    int separator_y = 280;
+    DrawLine(panel_x + padding, separator_y, panel_x + PREDICTION_PANEL_WIDTH - padding, separator_y, DARKGRAY);
 
-    // Probability bars
-    DrawText("Probabilities:", panel_x + 20, 265, 18, LIGHTGRAY);
+    // Probability bars title
+    DrawText("CLASS PROBABILITIES", panel_x + padding, separator_y + 15, 16, WHITE);
     
+    // Probability bars with better spacing
     for (int i = 0; i < 10; i++) {
-        int bar_y = 300 + (i * 38);  // Increased spacing from 28 to 38
+        int bar_y = separator_y + 45 + (i * 32);
         
-        // Digit label
+        // Digit label with background circle
+        if (i == pred->predicted_digit) {
+            DrawCircle(panel_x + 30, bar_y - 2, 12, ACCENT_COLOR);
+        }
+        
         char label[4];
-        snprintf(label, sizeof(label), "%d:", i);
-        DrawText(label, panel_x + 25, bar_y, 20, WHITE);
+        snprintf(label, sizeof(label), "%d", i);
+        DrawText(label, panel_x + 25, bar_y - 8, 18, WHITE);
         
         // Probability bar
-        int bar_width = (int)(pred->predictions[i] * 220);  // Increased from 200 to 220
-        Color bar_color = (i == pred->predicted_digit) ? GREEN : DARKGRAY;
-        DrawRectangle(panel_x + 55, bar_y + 3, bar_width, 16, bar_color);
+        int max_bar_width = 180;
+        int bar_width = (int)(pred->predictions[i] * (float)max_bar_width);
+        Color bar_color = (i == pred->predicted_digit) ? ACCENT_COLOR : (Color){60, 60, 60, 255};
+        
+        // Draw bar with rounded effect
+        DrawRectangle(panel_x + 55, bar_y, bar_width, 18, bar_color);
+        DrawRectangleLines(panel_x + 55, bar_y, max_bar_width, 18, DARKGRAY);
         
         // Percentage text
         char prob_str[16];
         snprintf(prob_str, sizeof(prob_str), "%.1f%%", pred->predictions[i] * 100.0f);
-        DrawText(prob_str, panel_x + 280, bar_y, 14, LIGHTGRAY);
+        
+        // Color the percentage for the predicted digit
+        Color text_color = (i == pred->predicted_digit) ? ACCENT_COLOR : LIGHTGRAY;
+        DrawText(prob_str, panel_x + 240, bar_y - 2, 14, text_color);
     }
-
-    // Separator line
-    DrawLine(panel_x, 0, panel_x, WINDOW_HEIGHT, DARKGRAY);
 }
 
 b8 load_trained_network(ffnn** net_ptr, const char* params_path)
