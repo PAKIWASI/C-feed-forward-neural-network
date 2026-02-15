@@ -97,7 +97,6 @@ typedef uint64_t u64;
 #define false ((b8)0)
 #define true  ((b8)1)
 
-
 // GENERIC FUNCTIONS
 typedef void (*copy_fn)(u8* dest, const u8* src);
 typedef void (*move_fn)(u8* dest, u8** src);

@@ -1,5 +1,5 @@
-#include "common.h"
 #include "mnist_predictor.h"
+
 
 
 int main(void)
@@ -7,7 +7,6 @@ int main(void)
     const char* params_path = "data/256_128_64.bin";
 
     LOG("using params from %s", params_path);
-
 
     // Initialize window
     InitWindow(TOTAL_WINDOW_WIDTH, WINDOW_HEIGHT, "MNIST Live Predictor");
@@ -33,12 +32,12 @@ int main(void)
     int save_count = 0;
 
     LOG("Controls:\n");
-    LOG("  • Left Mouse Button  : Draw on canvas\n");
-    LOG("  • C                  : Clear canvas\n");
-    LOG("  • S                  : Save drawing as .raw file\n");
-    LOG("  • + / =              : Increase brush size\n");
-    LOG("  • - / _              : Decrease brush size\n");
-    LOG("  • ESC                : Exit\n\n");
+    LOG(" - Left Mouse Button  : Draw on canvas\n");
+    LOG(" - C                  : Clear canvas\n");
+    LOG(" - S                  : Save drawing as .raw file\n");
+    LOG(" - + / =              : Increase brush size\n");
+    LOG(" - - / _              : Decrease brush size\n");
+    LOG(" - ESC                : Exit\n\n");
     LOG("Draw a digit (0-9) and watch the prediction update!\n\n");
 
     // Main loop
@@ -105,6 +104,7 @@ int main(void)
             }
             printf("Brush size: %.2f\n", brush_radius);
         }
+
         if (IsKeyPressed(KEY_MINUS) || IsKeyPressed(KEY_KP_SUBTRACT))
         {
             brush_radius -= 0.25f;

@@ -1,8 +1,8 @@
 #include "common.h"
-#include "ffnn.h"
 #include "layer.h"
 #include "mnist_predictor.h"
 #include "fast_math.h"
+
 
 
 void init_canvas(Canvas* canvas)
@@ -18,7 +18,7 @@ void clear_canvas(Canvas* canvas)
 float gaussian(float x, float y, float sigma)
 {
     float exponent = -((x*x) + (y*y)) / (2.0f * sigma * sigma);
-    return fast_exp(exponent) / (2.0f * PI * sigma * sigma);
+    return fast_exp(exponent) / (2.0f * PI * sigma * sigma);        // this pi from raylib
 }
 
 void draw_on_canvas(Canvas* canvas, int center_x, int center_y, float brush_radius)
@@ -68,7 +68,7 @@ void render_canvas(Canvas* canvas)
     {
         for (int x = 0; x < CANVAS_SIZE; x++)
         {
-            unsigned char value = canvas->data[y][x];
+            u8 value = canvas->data[y][x];
             Color pixel_color = (Color){value, value, value, 255};
             
             DrawRectangle(
@@ -106,15 +106,14 @@ void save_canvas(Canvas* canvas, const char* filename)
     fclose(f);
 }
 
-
 void draw_ui(float brush_radius, int save_count)
 {
-    int ui_y = WINDOW_SIZE + 5;  // Reduced padding from 10 to 5
+    int ui_y = WINDOW_SIZE + 5;
     
-    // Background for UI
-    DrawRectangle(0, WINDOW_SIZE, TOTAL_WINDOW_WIDTH, UI_HEIGHT, (Color){30, 30, 30, 255});
+    // Background                   // TODO: + 30 here too
+    DrawRectangle(0, WINDOW_SIZE, TOTAL_WINDOW_WIDTH + 30, UI_HEIGHT, (Color){30, 30, 30, 255});
     
-    // Title and instructions in one line
+    // Title and instructions 
     DrawText("MNIST Live Predictor", 10, ui_y, 18, WHITE);
     DrawText("Left Mouse: Draw | C: Clear | S: Save | +/-: Brush", 
              10, ui_y + 25, 13, GRAY);
@@ -123,7 +122,7 @@ void draw_ui(float brush_radius, int save_count)
     char brush_text[64];
     snprintf(brush_text, sizeof(brush_text), "Brush: %.2f", brush_radius);
     DrawText(brush_text, 10, ui_y + 45, 14, GREEN);
-    
+
     // Save count
     char save_text[64];
     snprintf(save_text, sizeof(save_text), "Saved: %d", save_count);
@@ -141,8 +140,8 @@ void draw_prediction_panel(LivePredictor* pred)
     int panel_x = WINDOW_SIZE;
     int panel_y = 0;
     
-    // Background
-    DrawRectangle(panel_x, panel_y, PREDICTION_PANEL_WIDTH, WINDOW_HEIGHT, 
+    // Background                               // TODO: why tf is padding here on right? +30 fixes it
+    DrawRectangle(panel_x, panel_y, PREDICTION_PANEL_WIDTH + 30, WINDOW_HEIGHT, 
                    (Color){20, 20, 20, 255});
 
     // Title
@@ -201,11 +200,13 @@ b8 load_trained_network(ffnn** net_ptr, const char* params_path)
     FILE* f = fopen(params_path, "rb");
     CHECK_WARN_RET(!f, false, "countn't open params %s", params_path);
 
+    LOG("loading pre trained wieghts from %s", params_path);
+
     // Read network structure
     u64 num_layers;
     fread(&num_layers, sizeof(u64), 1, f);
     
-    printf("Network has %lu layers\n", num_layers);
+    LOG("Network has %lu layers", num_layers);
     
     // Read layer sizes
     u16* layer_sizes = malloc((num_layers + 1) * sizeof(u16));
@@ -232,11 +233,11 @@ b8 load_trained_network(ffnn** net_ptr, const char* params_path)
         printf("%u", layer_sizes[i]);
         if (i < num_layers) { printf(" -> "); }
     }
-    printf("\n");
+    putchar('\n');
 
     // Verify input size
     if (layer_sizes[0] != 784) {
-        printf("Error: Network expects %u inputs, but MNIST images are 784 pixels\n", 
+        WARN("Error: Network expects %u inputs, but MNIST images are 784 pixels", 
                layer_sizes[0]);
         fclose(f);
         free(layer_sizes);
@@ -297,13 +298,13 @@ void init_predictor(LivePredictor* pred, const char* params_path)
     pred->needs_update = false;
 
     // Load trained network
-    printf("Loading trained network from %s...\n", params_path);
+    LOG("Loading trained network from %s...", params_path);
     if (!load_trained_network(&pred->network, params_path)) {
         pred->network = NULL;
         return;
     }
 
-    printf("Network loaded successfully!\n\n");
+    LOG("Network loaded successfully!\n");
 }
 
 void update_prediction(LivePredictor* pred)
@@ -357,3 +358,5 @@ void cleanup_predictor(LivePredictor* pred)
         ffnn_destroy(pred->network);
     }
 }
+
+
