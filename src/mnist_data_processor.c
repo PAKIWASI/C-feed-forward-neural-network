@@ -91,8 +91,14 @@ void mnist_print_img(u8* data, u64 index)
     data += (index * (MNIST_IMG_SIZE + MNIST_LABEL_SIZE));
     printf("\n Label: %u\n\n", *data);
 
-    for (u64 i = 0; i < MNIST_IMG_SIZE; i++) {
-        printf("%d ", *(data + i + 1));  // TODO: format ? 
+    const char* intensity = " .:-=+*#%@";
+    int levels = 11;
+
+    for (u64 i = 0; i < MNIST_IMG_SIZE; i++) 
+    {
+        u8 val = data[i + 1];
+        int level = (val * (levels - 1)) / 255;
+        putchar(intensity[level]);
 
         if (i != 0 && i % MNIST_IMG_DIM == 0) {
             putchar('\n');

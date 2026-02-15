@@ -1,7 +1,6 @@
 #include "arena.h"
 #include "common.h"
 #include "ffnn.h"
-#include "random.h"
 
 
 int main(void)
@@ -18,18 +17,18 @@ int main(void)
     // ffnn_destroy(net);
     // return 0;
 
-    pcg32_rand_seed(1234, 1);
+    // pcg32_rand_seed(1234, 1);
 
     ffnn* net = ffnn_create(
-            (u16[4]){784, 128, 64, 10}, // TODO:
-            4,
+            (u16[5]){784, 256, 128, 64, 10},
+            5,
             0.01f, 
             "/home/wasi/Documents/projects/c/ffnn/data/dataset.bin");
 
-    // ffnn_train(net);
-    ffnn_train_batch_epochs(net, 32, 5);
+    ffnn_train(net);
+    // ffnn_train_batch_epochs(net, 32, 5);
 
-    // ffnn_save_parameters(net, "/home/wasi/Documents/projects/c/ffnn/data/64_32.bin");
+    ffnn_save_parameters(net, "/home/wasi/Documents/projects/c/ffnn/data/256_128_64.bin");
 
     ffnn_change_dataset(net, "/home/wasi/Documents/projects/c/ffnn/data/testset.bin");
 

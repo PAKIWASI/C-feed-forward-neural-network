@@ -390,7 +390,7 @@ Usage:
     Tensor3D* t = matrix_to_tensor3d(img, arena);
     // Result: 1 × 28 × 28 tensor
 */
-Tensor3D* matrix_to_tensor3d(const Matrix* mat, Arena* arena);
+Tensor3D* matrix_to_tensor3d(const Matrixf* mat, Arena* arena);
 
 /*
 Convert 3D tensor (single channel) to 2D matrix
@@ -400,7 +400,7 @@ Usage:
     Matrix* img = tensor3d_to_matrix(t, arena);
     // Result: 28 × 28 matrix
 */
-Matrix* tensor3d_to_matrix(const Tensor3D* tensor, Arena* arena);
+Matrixf* tensor3d_to_matrix(const Tensor3D* tensor, Arena* arena);
 
 /*
 Extract a single channel from 3D tensor as a matrix
@@ -410,7 +410,7 @@ Usage:
     Matrix* channel5 = tensor3d_channel_to_matrix(features, 5, arena);
     // Result: 14 × 14 matrix of channel 5
 */
-Matrix* tensor3d_channel_to_matrix(const Tensor3D* tensor, u64 channel, Arena* arena);
+Matrixf* tensor3d_channel_to_matrix(const Tensor3D* tensor, u64 channel, Arena* arena);
 
 
 // STATISTICS AND NORMALIZATION

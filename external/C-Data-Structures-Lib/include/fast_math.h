@@ -9,7 +9,7 @@
     Originally written to be used for rng gaussian 
 */
 
-#define PI     3.14159265359f
+#define FAST_PI     3.14159265359f
 #define TWO_PI 6.28318530718f
 #define LN2    0.693147180559945f
 
@@ -47,14 +47,9 @@ e^x = 1 + x + x²/2! + x³/3! + x⁴/4! + ...
 */
 float fast_exp(float x);
 
-/*
 
-Option 2: Range Reduction
+float fast_ceil(float x);
 
-Use e^x = e^(integer) × e^(fraction)
-Compute e^(integer) by repeated squaring
-Compute e^(fraction) using Taylor series
-*/
 
 // TODO: higher precision versions ?
 // by increasing iteration count / Taylor series terms

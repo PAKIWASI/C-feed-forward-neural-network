@@ -1,10 +1,16 @@
 #ifndef FFNN_H
 #define FFNN_H
 
+
+/*
+ * C Data Structures Library
+ * Copyright (c) 2026 Wasi Ullah (PAKIWASI)
+ * Licensed under the MIT License. See LICENSE file for details.
+ */
+
+
 #include "gen_vector.h"
 #include "mnist_data_processor.h"
-
-
 
 
 typedef struct {

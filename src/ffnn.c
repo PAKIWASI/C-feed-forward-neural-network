@@ -28,7 +28,7 @@ void shuffle_indices(u16* indices, u16 size);
 
 // accumilator gradients for batch training
 typedef struct {
-    Matrix dL_dW; // (n x m) - How much current layer's weights effect Loss. (How to change weights to reduce loss)
+    Matrixf dL_dW; // (n x m) - How much current layer's weights effect Loss. (How to change weights to reduce loss)
     float* dL_dz; // (1 x n) - dL_dz = dL_db
 } batch_gradients;
 
@@ -533,7 +533,7 @@ void shuffle_indices(u16* indices, u16 size)
 {
     for (u16 i = size - 1; i > 0; i--) {
         // Generate random index from 0 to i (inclusive)
-        u16 j = (u16)pcg32_rand_bounded(i + 1);     // TODO: is this the right func?
+        u16 j = (u16)pcg32_rand_bounded(i + 1);
         
         // Swap indices[i] and indices[j]
         indices[i] ^= indices[j];
@@ -556,4 +556,6 @@ void batch_gradients_clear(batch_gradients* bg)
 
     memset(bg->dL_dz, 0, sizeof(float) * bg->dL_dW.n);
 }
+
+
 

@@ -64,8 +64,8 @@ float fast_sin(float x)
     // Normalize to [-π, π]
     //- Reduces angle to [-π, π] where Taylor series converges well
     //- Sine is periodic with period 2π
-    while (x > PI) { x -= TWO_PI; }
-    while (x < -PI) { x += TWO_PI; }
+    while (x > FAST_PI) { x -= TWO_PI; }
+    while (x < -FAST_PI) { x += TWO_PI; }
     
     float x2 = x * x;
     float x3 = x2 * x;
@@ -167,4 +167,21 @@ float fast_exp(float x)
     return exp_n * exp_r;
 }
 
-
+float fast_ceil(float x)
+{
+    // Cast to int truncates towards zero
+    int i = (int)x;
+    
+    // If x is already an integer, return it
+    if (x == (float)i) {
+        return x;
+    }
+    
+    // If x is positive and not an integer, add 1
+    if (x > 0.0f) {
+        return (float)(i + 1);
+    }
+    
+    // If x is negative, truncation already rounded towards zero (up)
+    return (float)i;
+}

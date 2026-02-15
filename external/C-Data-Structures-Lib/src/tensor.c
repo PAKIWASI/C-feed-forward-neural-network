@@ -543,7 +543,7 @@ b8 tensor4d_same_shape(const Tensor4D* a, const Tensor4D* b)
 // CONVERSION BETWEEN MATRIX AND TENSOR
 // ============================================================================
 
-Tensor3D* matrix_to_tensor3d(const Matrix* mat, Arena* arena)
+Tensor3D* matrix_to_tensor3d(const Matrixf* mat, Arena* arena)
 {
     CHECK_FATAL(!mat || !arena, "null pointer");
 
@@ -554,25 +554,25 @@ Tensor3D* matrix_to_tensor3d(const Matrix* mat, Arena* arena)
     return tensor;
 }
 
-Matrix* tensor3d_to_matrix(const Tensor3D* tensor, Arena* arena)
+Matrixf* tensor3d_to_matrix(const Tensor3D* tensor, Arena* arena)
 {
     CHECK_FATAL(!tensor || !arena, "null pointer");
     CHECK_FATAL(tensor->channels != 1, "tensor must have exactly 1 channel");
 
-    Matrix* mat = matrix_arena_alloc(arena, tensor->height, tensor->width);
+    Matrixf* mat = matrix_arena_alloc(arena, tensor->height, tensor->width);
     u64 total = (u64)tensor->height * tensor->width;
     memcpy(mat->data, tensor->data, sizeof(float) * total);
 
     return mat;
 }
 
-Matrix* tensor3d_channel_to_matrix(const Tensor3D* tensor, u64 channel,
+Matrixf* tensor3d_channel_to_matrix(const Tensor3D* tensor, u64 channel,
                                    Arena* arena)
 {
     CHECK_FATAL(!tensor || !arena, "null pointer");
     CHECK_FATAL(channel >= tensor->channels, "channel out of bounds");
 
-    Matrix* mat = matrix_arena_alloc(arena, tensor->height, tensor->width);
+    Matrixf* mat = matrix_arena_alloc(arena, tensor->height, tensor->width);
     float* channel_data = tensor3d_channel_ptr((Tensor3D*)tensor, channel);
     u64 total = (u64)tensor->height * tensor->width;
     memcpy(mat->data, channel_data, sizeof(float) * total);
