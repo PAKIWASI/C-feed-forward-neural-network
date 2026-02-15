@@ -1,6 +1,7 @@
 # Feed-Forward Neural Network (FFNN) for MNIST
 
 A high-performance, from-scratch implementation of a feed forward neural network in C for handwritten digit recognition using the MNIST dataset.
+
 No Libraries (Not even Math)
 
 ## Overview
