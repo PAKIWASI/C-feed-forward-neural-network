@@ -4,7 +4,7 @@
 
 int main(void)
 {
-    const char* params_path = "data/256.bin";
+    const char* params_path = "data/256_128_64.bin";
 
     LOG("using params from %s", params_path);
 
