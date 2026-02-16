@@ -27,10 +27,10 @@ int main(void)
             0.01f, 
             "data/dataset.bin");
 
-    ffnn_train(net);
-    // ffnn_train_batch_epochs(net, 64, 4);
+    // ffnn_train(net);
+    ffnn_train_batch_epochs(net, 32, 5);
 
-    ffnn_save_parameters(net, "data/256.bin");
+    ffnn_save_parameters(net, "data/256_batched.bin");
 
     ffnn_change_dataset(net, "data/testset.bin");
 

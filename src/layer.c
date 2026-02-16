@@ -3,8 +3,6 @@
 #include "fast_math.h"
 
 
-
-
 Layer* create_common_layer(Arena* arena, u16 m, u16 n);
 void hidden_layer_init_WB(Layer* layer);
 void output_layer_init_WB(Layer* layer);
@@ -68,14 +66,20 @@ void layer_update_WB(Layer* layer, float learning_rate)
     // Update W using dL_dW
     u64 total = (u64)layer->m * layer->n;
 
+    // Add restrict for auto-vectorization
+    float* restrict W_data = layer->W.data;
+    const float* restrict dL_dW_data = layer->dL_dW.data;
+
     for (u64 i = 0; i < total; i++) {
-        layer->W.data[i] += -1 * learning_rate * layer->dL_dW.data[i];
+        W_data[i] += -1 * learning_rate * dL_dW_data[i];
     }
 
-    // Update biases using dL_db = dL_dz
+    // Update biases using dL_dz
+    float* restrict b = layer->b;
+    const float* restrict dL_dz = layer->dL_dz;
 
     for (u16 i = 0; i < layer->n; i++) {
-        layer->b[i] += -1 * learning_rate * layer->dL_dz[i];
+        b[i] += -1 * learning_rate * dL_dz[i];
     }
 }
 
@@ -86,7 +90,7 @@ void layer_update_WB(Layer* layer, float learning_rate)
     for each input x, we calculate the above values from each layer
     the output of each layer is passed as input to next
 */
-void layer_calc_output(Layer* layer, const float* x)
+void layer_calc_output(Layer* layer, const float* restrict x)
 {
     layer->x = (float*)x;   // save ptr to input for backprop
 
@@ -96,12 +100,21 @@ void layer_calc_output(Layer* layer, const float* x)
     x gets xplied to every row of W (n rows), each row has a bias (b (1xn))
     This is more cache friendly
     */
-    for (u16 i = 0; i < layer->n; i++) {
-        layer->z[i] = 0.0f;
-        for (u16 j = 0; j < layer->m; j++) {
-            layer->z[i] += x[j] * MATRIX_AT(&layer->W, i, j);
+    float* restrict z = layer->z;        // restrict for auto vectorization
+    const float* restrict b = layer->b;
+    const float* restrict W_data = layer->W.data;
+    const u16 m = layer->m;
+    const u16 n = layer->n;
+
+    for (u16 i = 0; i < n; i++) {
+        float sum = 0.0f;
+        const float* restrict W_row = W_data + (i * m);
+        
+        // Inner loop is now vectorizable - compiler can emit SIMD
+        for (u16 j = 0; j < m; j++) {
+            sum += x[j] * W_row[j];
         }
-        layer->z[i] += layer->b[i];
+        z[i] = sum + b[i];
     }
 
     // Apply activation: a = f(z)
@@ -131,9 +144,9 @@ void layer_calc_output(Layer* layer, const float* x)
     dL_db = dL_dz * dz_db = dL_dz * 1   (1 x n)
     dL_dx = dL_dz * dz_dx = dL_dz * W   (1 x n) * (n x m) = (1 x m) - Send downstream
 */
-void layer_calc_deriv(Layer* layer, const float* dL_da)
+void layer_calc_deriv(Layer* layer, const float* restrict dL_da)
 {
-        // get dL_dz
+    // get dL_dz
     if (!layer->is_output_layer) {
         relu_deriv(layer->z, dL_da, layer->dL_dz, layer->n);
     }
@@ -142,12 +155,20 @@ void layer_calc_deriv(Layer* layer, const float* dL_da)
         softmax_crossentropy_deriv(layer->a, dL_da, layer->dL_dz, layer->n);
     }
 
-    // dL_dW
-    for (u16 i = 0; i < layer->n; i++) {
+    // dL_dW - outer product
+    float* restrict dL_dW_data = layer->dL_dW.data;
+    const float* restrict dL_dz = layer->dL_dz;
+    const float* restrict x = layer->x;
+    const u16 m = layer->m;
+    const u16 n = layer->n;
 
-        for (u16 j = 0; j < layer->m; j++) {
-            // matrix, arrays accessed row wise - good for cache
-            MATRIX_AT(&layer->dL_dW, i, j) = layer->dL_dz[i] * layer->x[j];
+    for (u16 i = 0; i < n; i++) {
+        const float dL_dz_i = dL_dz[i];
+        float* restrict dL_dW_row = dL_dW_data + (i * m);
+        
+        // Inner loop vectorizable
+        for (u16 j = 0; j < m; j++) {
+            dL_dW_row[j] = dL_dz_i * x[j];
         }
     }
 
@@ -157,35 +178,39 @@ void layer_calc_deriv(Layer* layer, const float* dL_da)
     // transpose the matrix for cache friendly access
     matrix_T(&layer->W_T, &layer->W);    // mat is m x n
 
-    for (u16 i = 0; i < layer->m; i++) {
-        layer->dL_dx[i] = 0.0f;
-        for (u16 j = 0; j < layer->n; j++) {
-            // matrix, arrays accessed row wise - good for cache
-            layer->dL_dx[i] += layer->dL_dz[j] * MATRIX_AT(&layer->W_T, i, j);
-        }
-    }
+    float* restrict dL_dx = layer->dL_dx;
+    const float* restrict W_T_data = layer->W_T.data;
 
+    for (u16 i = 0; i < m; i++) {
+        float sum = 0.0f;
+        const float* restrict W_T_row = W_T_data + (i * n);
+        
+        // Inner loop vectorizable
+        for (u16 j = 0; j < n; j++) {
+            sum += dL_dz[j] * W_T_row[j];
+        }
+        dL_dx[i] = sum;
+    }
 }
 
 
 
 // Use Leaky ReLu?
-void relu_activate(const float* z, float* a, u16 size)
+void relu_activate(const float* restrict z, float* restrict a, u16 size)
 {
     for (u16 i = 0; i < size; i++) {
-        a[i] = z[i] >= 0.0f ? z[i] : 0.0f;
+        a[i] = z[i] >= 0.0f ? z[i] : 0;
     }
 }
 
-void relu_deriv(const float* z, const float* dL_da, float* dL_dz, u16 size)
+void relu_deriv(const float* restrict z, const float* restrict dL_da, float* restrict dL_dz, u16 size)
 {
-
     for (u16 i = 0; i < size; i++) {
         dL_dz[i] = (z[i] >= 0) ? dL_da[i] : 0;  // jacobian
     }
 }
 
-void softmax_activate(const float* z, float* a, u16 size)
+void softmax_activate(const float* restrict z, float* restrict a, u16 size)
 {
     // Numerical stability: subtract max to prevent overflow
     // Prevents overflow when z values are large
@@ -202,8 +227,9 @@ void softmax_activate(const float* z, float* a, u16 size)
     }
     
     // Normalize
+    const float inv_sum = 1.0f / sum;
     for (u16 i = 0; i < size; i++) {
-        a[i] /= sum;
+        a[i] *= inv_sum;
     }
 }
 
@@ -218,8 +244,8 @@ When computing dL/dz , the derivative simplifies remarkably:
 
 dL/dz_i = p_i - y_i
 */
-void softmax_crossentropy_deriv(const float* predicted, 
-                const float* true_label, float* dL_dz, u16 size)
+void softmax_crossentropy_deriv(const float* restrict predicted, 
+                const float* restrict true_label, float* restrict dL_dz, u16 size)
 {
     for (u16 i = 0; i < size; i++) {
         dL_dz[i] = predicted[i] - true_label[i];
