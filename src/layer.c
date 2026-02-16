@@ -1,5 +1,4 @@
 #include "layer.h"
-#include "arena.h"
 #include "random.h"
 #include "fast_math.h"
 
