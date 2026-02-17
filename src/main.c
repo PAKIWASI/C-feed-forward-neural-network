@@ -7,8 +7,8 @@
 int main(void)
 {
     // ffnn* net = ffnn_create_trained(
-    //     "/home/wasi/Documents/projects/c/ffnn/data/WB.bin",
-    //     "/home/wasi/Documents/projects/c/ffnn/data/testset.bin"
+    //     "data/64_32.bin",
+    //     "data/testset.bin"
     // );
     //
     // ffnn_test(net);
@@ -22,15 +22,15 @@ int main(void)
     pcg32_rand_seed(1234, 1);
 
     ffnn* net = ffnn_create(
-            (u16[3]){784, 256, 10},
+            (u16[3]){784, 512, 10},
             3,
             0.01f, 
             "data/dataset.bin");
 
-    // ffnn_train(net);
-    ffnn_train_batch_epochs(net, 32, 5);
+    ffnn_train(net);
+    // ffnn_train_batch_epochs(net, 32, 5);
 
-    ffnn_save_parameters(net, "data/256_batched.bin");
+    ffnn_save_parameters(net, "data/512.bin");
 
     ffnn_change_dataset(net, "data/testset.bin");
 

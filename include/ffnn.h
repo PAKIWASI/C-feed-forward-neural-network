@@ -32,6 +32,7 @@ Example :
 */
 ffnn* ffnn_create(u16* layer_sizes, u8 num_layers, float learning_rate, const char* mnist_path);
 
+// TODO: seperate ffnn creation and loading of training set
 /*
     Create a Feed Forward Neural Network with pre-trained weights from ffnn_save_parameters()
     Load a testing set for it from path testing_set
