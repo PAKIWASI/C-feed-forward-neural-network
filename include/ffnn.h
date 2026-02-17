@@ -90,6 +90,7 @@ b8   ffnn_save_parameters(const ffnn* net, const char* outfile);
 
 #define LEARN_DECAY_RATE 0.9995f
 #define LEARN_DECAY_AFTER 1000
+
 /*
 
    Finding the Min of the cost function
