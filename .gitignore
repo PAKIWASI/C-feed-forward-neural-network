@@ -3,6 +3,8 @@ build/
 .cache
 
 ./data/dataset.bin
+data/fashion_mnist
+data/fashion_mnist/*
 dataset.bin
 testset.bin
 WB.bin
