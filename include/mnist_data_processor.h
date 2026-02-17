@@ -32,7 +32,7 @@ typedef struct {
 
 
 // PUBLIC API
-b8 mnist_prepare_from_idx(const char* data_dir, const char* out_dir);
+b8 mnist_prepare_from_idx(const char* data_dir, const char* out_dir, b8 use_train);
 
 // load the file with the custom format : dims|label|img...
 b8 mnist_load_custom_file(mnist_dataset* set, const char* filepath, Arena* arena);

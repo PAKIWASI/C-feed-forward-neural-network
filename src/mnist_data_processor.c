@@ -1,23 +1,22 @@
 #include "mnist_data_processor.h"
-#include "arena.h"
-#include "common.h"
 #include "idx_file_reader.h"
 #include "String.h"
 
 
 
 
-b8 mnist_load_from_idx(String* data_dir, idx_file** set, Arena* arena);
+b8 mnist_load_from_idx(String* data_dir, idx_file** set, Arena* arena, b8 use_train);
 b8 mnist_save_custom_file(idx_file* img, idx_file* label, String* outdir);
 
 
 
-// TODO: this function needes internal code changes to switch from train to test
-// need to fix that
-b8 mnist_prepare_from_idx(const char* data_dir, const char* out_dir)
+b8 mnist_prepare_from_idx(const char* data_dir, const char* out_dir, b8 use_train)
 {
-    // Arena* arena = arena_create(MNIST_SIZE_IMG_TRAIN + MNIST_SIZE_LABEL_TRAIN + 1000);
-    Arena* arena = arena_create(MNIST_SIZE_IMG_TEST + MNIST_SIZE_LABEL_TEST + 1000);
+    u64 arena_size = use_train
+        ? (MNIST_SIZE_IMG_TRAIN + MNIST_SIZE_LABEL_TRAIN + 1000)
+        : (MNIST_SIZE_IMG_TEST  + MNIST_SIZE_LABEL_TEST  + 1000);
+
+    Arena* arena = arena_create(arena_size);
     LOG("arena alloced size: %lu\n", arena->size);
 
     // Read IDX input files (img + label), convert to correct byte order
@@ -34,8 +33,8 @@ b8 mnist_prepare_from_idx(const char* data_dir, const char* out_dir)
 
     String* data_path = string_from_cstr(data_dir);
     // load data
-    if (!mnist_load_from_idx(data_path, set, arena)) {
-        LOG("could'nt load data from idx file");
+    if (!mnist_load_from_idx(data_path, set, arena, use_train)) {
+        WARN("could'nt load data from idx file");
         return false;
     }
 
@@ -43,7 +42,7 @@ b8 mnist_prepare_from_idx(const char* data_dir, const char* out_dir)
     // the set now contains data
     // save to custom format
     if (!mnist_save_custom_file(set[0], set[1], out_path)) {
-        LOG("couldn't save data to out_dir");
+        WARN("couldn't save data to out_dir");
         return false;
     }
 
@@ -110,13 +109,13 @@ void mnist_print_img(u8* data, u64 index)
 
 // private functions
 
-b8 mnist_load_from_idx(String* data_dir, idx_file** set, Arena* arena)
+b8 mnist_load_from_idx(String* data_dir, idx_file** set, Arena* arena, b8 use_train)
 {
     CHECK_FATAL(!data_dir, "data_dir str is null");
 
     u64  path_str_len = string_len(data_dir);
 
-    const char* files[4]     = {
+    const char* files[4] = {
         // training data, labels
         "train-images-idx3-ubyte", 
         "train-labels-idx1-ubyte",
@@ -125,8 +124,10 @@ b8 mnist_load_from_idx(String* data_dir, idx_file** set, Arena* arena)
         "t10k-labels-idx1-ubyte"
     };
 
-    // only run for first 2 (train data + lables)
-    for (u8 i = 2; i < 4; i++) {    // now running for testing
+    // start index: 0 for train, 2 for test
+    u8 start = use_train ? 0 : 2;
+
+    for (u8 i = start; i < start + 2; i++) {
 
         // appending filename to directory str
         string_append_cstr(data_dir, files[i]);
@@ -136,13 +137,14 @@ b8 mnist_load_from_idx(String* data_dir, idx_file** set, Arena* arena)
 
         LOG("Reading file %s", full_path);
 
-        if (!idx_read_file(set[i - 2], full_path, arena)) {
-            LOG("Read Error file %s", full_path);
+        if (!idx_read_file(set[i - start], full_path, arena)) {
+            WARN("Read Error file %s", full_path);
+            WARN("Are you not using a trailing slash 'raw/' ?");
             return false;
         }
 
         // (DEBUG) Print first image
-        print_hex(set[i - 2]->data, (u64)28 * 28, 28);
+        print_hex(set[i - start]->data, (u64)28 * 28, 28);
 
         // this also removes null term
         string_remove_range(data_dir, path_str_len, string_len(data_dir));
@@ -179,7 +181,7 @@ b8 mnist_save_custom_file(idx_file* img, idx_file* label, String* outdir)
     LOG("img width: %u | img height: %u", img_w, img_h);
 
     // appending file name
-    string_append_cstr(outdir, "label_img.bin");
+    string_append_cstr(outdir, "fashion_test.bin");        // TODO: this is static ! need to manually change while switching from test/train
     string_append_char(outdir, '\0');
     const char* full_path = string_data_ptr(outdir);
 

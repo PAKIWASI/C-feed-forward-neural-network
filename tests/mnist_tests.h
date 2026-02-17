@@ -14,8 +14,9 @@
 int test_idx_load(void)
 {
     return ! mnist_prepare_from_idx(
-        "/home/wasi/Documents/projects/c/ffnn/data/raw/",
-        "/home/wasi/Documents/projects/c/ffnn/data/"
+        "data/raw/",
+        "data/",
+        false
     );
 }
 
@@ -28,7 +29,7 @@ int test_mnist_read(void)
 
     mnist_load_custom_file(
         set, 
-        "/home/wasi/Documents/projects/c/ffnn/data/dataset.bin",
+        "data/dataset.bin",
         arena
     );
 
@@ -203,17 +204,55 @@ int test_full_training(void)
             (u16[4]){784, 64, 32, 10},
             4,
             0.01f, 
-            "/home/wasi/Documents/projects/c/ffnn/data/dataset.bin");
+            "data/dataset.bin");
 
     ffnn_train(net);
 
-    ffnn_save_parameters(net, "/home/wasi/Documents/projects/c/ffnn/data/WB.bin");
+    // ffnn_save_parameters(net, "data/WB.bin");
 
-    ffnn_change_dataset(net, "/home/wasi/Documents/projects/c/ffnn/data/testset.bin");
+    ffnn_set_dataset(net, "data/testset.bin");
 
     ffnn_test(net);
 
     ffnn_destroy(net);
+    return 0;
+}
+
+int load_fashion_mnist(void)
+{
+    return ! mnist_prepare_from_idx(
+        "data/fashion_mnist/raw/",
+        "data/fashion_mnist/",
+        false
+    );
+
+
+    return 0;
+}
+
+int test_fashion_mnist(void)
+{
+    pcg32_rand_seed(1234, 1);
+
+    ffnn* net = ffnn_create(
+            (u16[4]){784, 128, 64, 10},
+            4,
+            0.01f, 
+            "data/fashion_mnist/fashion_train.bin");
+
+    ffnn_train(net);
+    // ffnn_train_batch(net, 64, 5);
+
+    ffnn_save_parameters(net, "data/fashion_mnist/f_128_64.bin");
+
+    ffnn_set_dataset(net, "data/fashion_mnist/fashion_test.bin");
+
+    ffnn_test(net);
+
+    LOG("main arena usage: %lu", arena_used(net->main_arena));
+    LOG("dataset arena usage: %lu", arena_used(net->dataset_arena));
+    ffnn_destroy(net);
+
     return 0;
 }
 
