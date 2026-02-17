@@ -10,11 +10,11 @@ typedef struct Layer {
 
     // Common data for all layers
 
-    float* x; // input (1 x m) - Pointer to prev layer output - Needed for backprop
-    float* b; // bias (1 x n) - Each neuron of current layer has a bias value
+    float*  x; // input (1 x m) - Pointer to prev layer output - Needed for backprop
+    float*  b; // bias (1 x n) - Each neuron of current layer has a bias value
     Matrixf W; // weights (n x m) - Maps prev layer neurons to curr layer with a weight (fully connnected)
-    float* z; // pre-activation output (1 x n) - z = xW + b - (1 x n) = (1 x m) * (m x n) + (1 x n) - Linear Transformation
-    float* a; // activated output (1 x n) - a = f(z) (element wise activation)  - Non Linearity (Learn complex patterns)
+    float*  z; // pre-activation output (1 x n) - z = xW + b - (1 x n) = (1 x m) * (m x n) + (1 x n) - Linear Transformation
+    float*  a; // activated output (1 x n) - a = f(z) (element wise activation)  - Non Linearity (Learn complex patterns)
 
     // Gradients for Backpropogation
 
@@ -25,12 +25,12 @@ typedef struct Layer {
 
     // Dimensions
 
-    u16 m;  // Input size - Size of previous layer
-    u16 n;  // Ouput size - Size of current layer 
+    u16 m; // Input size - Size of previous layer
+    u16 n; // Ouput size - Size of current layer
 
     // Layer-specific behavior
 
-    b8 is_output_layer;     // flag determines which act/act_deriv function to use
+    b8 is_output_layer; // flag determines which act/act_deriv function to use
 
     Matrixf W_T; // transpose of W matrix (needed for backprop)
 

@@ -1,4 +1,5 @@
 #include "common.h"
+#include "ffnn.h"
 #include "layer.h"
 #include "mnist_predictor.h"
 #include "fast_math.h"
@@ -69,7 +70,7 @@ void render_canvas(Canvas* canvas)
         for (int x = 0; x < CANVAS_SIZE; x++)
         {
             u8 value = canvas->data[y][x];
-            Color pixel_color = (Color){value, value, value, 255};
+            Color pixel_color = (Color){value, value, value, 255};  // higher val -> brigher pixel
             
             DrawRectangle(
                 x * SCALE, 
@@ -248,95 +249,6 @@ void draw_prediction_panel(LivePredictor* pred)
     }
 }
 
-b8 load_trained_network(ffnn** net_ptr, const char* params_path)
-{
-    FILE* f = fopen(params_path, "rb");
-    CHECK_WARN_RET(!f, false, "countn't open params %s", params_path);
-
-    LOG("loading pre trained wieghts from %s", params_path);
-
-    // Read network structure
-    u64 num_layers;
-    fread(&num_layers, sizeof(u64), 1, f);
-    
-    LOG("Network has %lu layers", num_layers);
-    
-    // Read layer sizes
-    u16* layer_sizes = malloc((num_layers + 1) * sizeof(u16));
-    fseek(f, 0, SEEK_SET); // Reset to beginning
-    fread(&num_layers, sizeof(u64), 1, f);
-    
-    for (u64 i = 0; i < num_layers; i++) {
-        u16 m, n;
-        fread(&m, sizeof(u16), 1, f);
-        fread(&n, sizeof(u16), 1, f);
-        
-        if (i == 0) {
-            layer_sizes[0] = m; // Input size
-        }
-        layer_sizes[i + 1] = n; // Output size of this layer
-        
-        // Skip weights and biases for now
-        fseek(f, (long)(sizeof(float) * ((u64)n * m + n)), SEEK_CUR);
-    }
-
-    // Print network structure
-    printf("Network structure: ");
-    for (u64 i = 0; i <= num_layers; i++) {
-        printf("%u", layer_sizes[i]);
-        if (i < num_layers) { printf(" -> "); }
-    }
-    putchar('\n');
-
-    // Verify input size
-    if (layer_sizes[0] != 784) {
-        WARN("Error: Network expects %u inputs, but MNIST images are 784 pixels", 
-               layer_sizes[0]);
-        fclose(f);
-        free(layer_sizes);
-        return false;
-    }
-
-    // Create network structure
-    ffnn* net = malloc(sizeof(ffnn));
-    net->main_arena = arena_create(nMB(5));
-    net->dataset_arena = arena_create(1000); // Minimal, not used
-    net->learning_rate = 0.01f; // Not used for inference
-
-    // Initialize layers vector
-    genVec_init_stk(num_layers, sizeof(Layer*), NULL, NULL, NULL, &net->layers);
-    
-    // Reopen and read weights
-    fclose(f);
-    f = fopen(params_path, "rb");
-    fread(&num_layers, sizeof(u64), 1, f); // Skip num_layers
-    
-    for (u64 i = 0; i < num_layers; i++) {
-        u16 m, n;
-        fread(&m, sizeof(u16), 1, f);
-        fread(&n, sizeof(u16), 1, f);
-        
-        Layer* l;
-        if (i == num_layers - 1) {
-            l = layer_create_output(net->main_arena, m, n);
-        } else {
-            l = layer_create_hidden(net->main_arena, m, n);
-        }
-        
-        // Read weights and biases
-        fread(l->W.data, sizeof(float), (u64)n * m, f);
-        fread(l->b, sizeof(float), n, f);
-        
-        genVec_push(&net->layers, (u8*)&l);
-    }
-    
-    fclose(f);
-    free(layer_sizes);
-
-    *net_ptr = net;
-    return true;
-}
-
 void init_predictor(LivePredictor* pred, const char* params_path)
 {
     // Initialize canvas
@@ -352,10 +264,12 @@ void init_predictor(LivePredictor* pred, const char* params_path)
 
     // Load trained network
     LOG("Loading trained network from %s...", params_path);
-    if (!load_trained_network(&pred->network, params_path)) {
-        pred->network = NULL;
-        return;
-    }
+    // if (!load_trained_network(&pred->network, params_path)) {
+    //     pred->network = NULL;
+    //     return;
+    // }
+    pred->network = ffnn_create_trained(params_path);
+    CHECK_FATAL(!pred->network, "pre trained network loading error");
 
     LOG("Network loaded successfully!\n");
 }

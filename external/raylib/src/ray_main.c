@@ -4,7 +4,9 @@
 
 int main(void)
 {
-    const char* params_path = "data/256.bin";
+
+    // load a pretrained model, created with ffnn 
+    const char* params_path = "data/256.bin";   // layers : 784 256 10
 
     LOG("using params from %s", params_path);
 

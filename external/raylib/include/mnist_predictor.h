@@ -52,7 +52,7 @@ typedef struct {
 
 // CANVAS FUNCTIONS
 
-void init_canvas(Canvas* canvas);
+// void init_canvas(Canvas* canvas);
 void clear_canvas(Canvas* canvas);
 void draw_on_canvas(Canvas* canvas, int center_x, int center_y, float brush_radius);
 void render_canvas(Canvas* canvas);
@@ -70,11 +70,12 @@ void draw_prediction_panel(LivePredictor* pred);
 void init_predictor(LivePredictor* pred, const char* params_path);
 void update_prediction(LivePredictor* pred);
 void cleanup_predictor(LivePredictor* pred);
-b8 load_trained_network(ffnn** net_ptr, const char* params_path);
+// b8 load_trained_network(ffnn** net_ptr, const char* params_path);
 
 
 // UTILITY FUNCTIONS
 
-float gaussian(float x, float y, float sigma);
+// float gaussian(float x, float y, float sigma);
+
 
 #endif // MNIST_LIVE_PREDICTOR_H
