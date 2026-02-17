@@ -1,4 +1,5 @@
 #include "ffnn.h"
+#include "common.h"
 #include "layer.h"
 #include "random.h"
 
@@ -41,6 +42,10 @@ void batch_gradients_clear(batch_gradients* bg);
 
 ffnn* ffnn_create(u16* layer_sizes, u8 num_layers, float learning_rate, const char* mnist_path)
 {
+    CHECK_FATAL(!layer_sizes, "layer sizes are null");
+    CHECK_FATAL(!mnist_path, "mnist_path is null");
+    CHECK_FATAL(num_layers == 0, "can't have 0 layers");
+    CHECK_FATAL(learning_rate == 0, "can't have 0 learning_rate");
     LOG("creating ffnn");
     LOG("learing_rate set to %f", learning_rate);
     LOG("no of layers: %u", num_layers);
@@ -100,8 +105,9 @@ ffnn* ffnn_create(u16* layer_sizes, u8 num_layers, float learning_rate, const ch
 }
 
 
-ffnn* ffnn_create_trained(const char* saved_path, const char* testing_set)
+ffnn* ffnn_create_trained(const char* saved_path)
 {
+    CHECK_FATAL(!saved_path, "saved_path is null");
     LOG("creating ffnn on pre trained parameters");
 
     // open the parameters file
@@ -111,12 +117,8 @@ ffnn* ffnn_create_trained(const char* saved_path, const char* testing_set)
     LOG("opened parameters file %s", saved_path);
 
     ffnn* net = malloc(sizeof(ffnn));
-                                                // 10k * (784 + 1)
-    net->dataset_arena = arena_create(nKB(1) + (MNIST_TEST_SIZE * (MNIST_IMG_SIZE + MNIST_LABEL_SIZE)));
-    LOG("dataset arena allocted with %lu", arena_remaining(net->dataset_arena));
 
-
-    mnist_load_custom_file(&net->set, testing_set, net->dataset_arena);
+    net->dataset_arena = NULL;
 
     // read num of layer from file
     u64 num_layers;
@@ -188,15 +190,37 @@ ffnn* ffnn_create_trained(const char* saved_path, const char* testing_set)
 
 void ffnn_destroy(ffnn* net)
 {
+    CHECK_FATAL(!net, "net is null");
     genVec_destroy_stk(&net->layers);
     arena_release(net->main_arena);
     arena_release(net->dataset_arena);
     free(net);
 }
 
-void ffnn_change_dataset(ffnn* net, const char* dataset_path)
+// void ffnn_change_dataset(ffnn* net, const char* dataset_path)
+// {
+//     arena_clear(net->dataset_arena);
+//
+//     mnist_load_custom_file(&net->set, dataset_path, net->dataset_arena);
+// }
+
+
+void ffnn_set_dataset(ffnn* net, const char* dataset_path)
 {
-    arena_clear(net->dataset_arena);
+    if (net->dataset_arena == NULL) {
+        FILE* f = fopen(dataset_path, "rb"); 
+        u16 num_imgs;
+        u8 img_w, img_h;
+        fread(&num_imgs, sizeof(u16), 1, f);
+        fread(&img_w, sizeof(u8), 1, f);
+        fread(&img_h, sizeof(u8), 1, f);
+        net->dataset_arena = arena_create(nKB(1) + ((u64)num_imgs * ((img_w*img_h) + 1)));
+        LOG("dataset arena allocted with %lu", arena_remaining(net->dataset_arena));
+        fclose(f);
+    }
+    else {
+        arena_clear(net->dataset_arena);
+    }
 
     mnist_load_custom_file(&net->set, dataset_path, net->dataset_arena);
 }

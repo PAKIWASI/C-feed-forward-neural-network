@@ -37,7 +37,7 @@ ffnn* ffnn_create(u16* layer_sizes, u8 num_layers, float learning_rate, const ch
     Create a Feed Forward Neural Network with pre-trained weights from ffnn_save_parameters()
     Load a testing set for it from path testing_set
 */
-ffnn* ffnn_create_trained(const char* saved_path, const char* testing_set);
+ffnn* ffnn_create_trained(const char* saved_path);
 
 /*
     Free resources : Arenas, ffnn struct
@@ -102,7 +102,7 @@ void ffnn_test(ffnn* net);
 
 // change dataset while weights are in memory
 // used to switch from training to testing set after training
-void ffnn_change_dataset(ffnn* net, const char* dataset_path);
+void ffnn_set_dataset(ffnn* net, const char* dataset_path);
 
 // save the trained weights and biases in binary format
 b8 ffnn_save_parameters(const ffnn* net, const char* outfile);
