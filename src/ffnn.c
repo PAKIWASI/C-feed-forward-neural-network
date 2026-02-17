@@ -194,7 +194,9 @@ void ffnn_destroy(ffnn* net)
     CHECK_FATAL(!net, "net is null");
     genVec_destroy_stk(&net->layers);
     arena_release(net->main_arena);
-    arena_release(net->dataset_arena);
+    if (net->dataset_arena) {
+        arena_release(net->dataset_arena);
+    }
     free(net);
 }
 
@@ -329,7 +331,7 @@ For each epoch:
         Average accumulated gradients by batch size
         Update weights using averaged gradients
 */
-void ffnn_train_batch_epochs(ffnn* net, u16 batch_size, u16 num_epochs)
+void ffnn_train_batch(ffnn* net, u16 batch_size, u16 num_epochs)
 {
     CHECK_FATAL(batch_size == 0, "batch size can't be 0");
     CHECK_FATAL(batch_size > net->set.num_imgs, "batch size larger than dataset");

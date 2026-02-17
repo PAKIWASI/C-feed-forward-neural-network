@@ -32,10 +32,8 @@ Example :
 */
 ffnn* ffnn_create(u16* layer_sizes, u8 num_layers, float learning_rate, const char* mnist_path);
 
-// TODO: seperate ffnn creation and loading of training set
 /*
     Create a Feed Forward Neural Network with pre-trained weights from ffnn_save_parameters()
-    Load a testing set for it from path testing_set
 */
 ffnn* ffnn_create_trained(const char* saved_path);
 
@@ -95,13 +93,16 @@ Epoch 1:
 
 Total Updates: 1,875
 */                              // size of each batch       // number of passes to do (on complete set)
-void ffnn_train_batch_epochs(ffnn* net, u16 batch_size, u16 num_epochs);
+void ffnn_train_batch(ffnn* net, u16 batch_size, u16 num_epochs);
 
 
 void ffnn_test(ffnn* net);
 
-// change dataset while weights are in memory
-// used to switch from training to testing set after training
+
+/*
+    load a dataset after creating ffnn
+    or switch a dataset while weights are in memory after training
+*/
 void ffnn_set_dataset(ffnn* net, const char* dataset_path);
 
 // save the trained weights and biases in binary format
