@@ -1,4 +1,5 @@
 #include "ffnn.h"
+#include "arena.h"
 #include "common.h"
 #include "layer.h"
 #include "random.h"
@@ -207,20 +208,19 @@ void ffnn_destroy(ffnn* net)
 
 void ffnn_set_dataset(ffnn* net, const char* dataset_path)
 {
-    if (net->dataset_arena == NULL) {
-        FILE* f = fopen(dataset_path, "rb"); 
-        u16 num_imgs;
-        u8 img_w, img_h;
-        fread(&num_imgs, sizeof(u16), 1, f);
-        fread(&img_w, sizeof(u8), 1, f);
-        fread(&img_h, sizeof(u8), 1, f);
-        net->dataset_arena = arena_create(nKB(1) + ((u64)num_imgs * ((img_w*img_h) + 1)));
-        LOG("dataset arena allocted with %lu", arena_remaining(net->dataset_arena));
-        fclose(f);
+    if (net->dataset_arena != NULL) {
+        arena_release(net->dataset_arena);
     }
-    else {
-        arena_clear(net->dataset_arena);
-    }
+
+    FILE* f = fopen(dataset_path, "rb"); 
+    u16 num_imgs;
+    u8 img_w, img_h;
+    fread(&num_imgs, sizeof(u16), 1, f);
+    fread(&img_w, sizeof(u8), 1, f);
+    fread(&img_h, sizeof(u8), 1, f);
+    net->dataset_arena = arena_create(nKB(1) + ((u64)num_imgs * ((img_w*img_h) + 1)));
+    LOG("dataset arena allocted with %lu", arena_remaining(net->dataset_arena));
+    fclose(f);
 
     mnist_load_custom_file(&net->set, dataset_path, net->dataset_arena);
 }

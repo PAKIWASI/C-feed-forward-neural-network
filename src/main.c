@@ -6,9 +6,7 @@
 
 int main(void)
 {
-    ffnn* net = ffnn_create_trained(
-        "data/512.bin"
-    );
+    ffnn* net = ffnn_create_trained("data/512.bin");
 
     ffnn_set_dataset(net, "data/testset.bin");
 
