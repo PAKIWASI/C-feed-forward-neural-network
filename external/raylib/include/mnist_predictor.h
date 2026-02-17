@@ -77,4 +77,5 @@ b8 load_trained_network(ffnn** net_ptr, const char* params_path);
 
 float gaussian(float x, float y, float sigma);
 
+
 #endif // MNIST_LIVE_PREDICTOR_H

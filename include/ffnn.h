@@ -23,10 +23,25 @@ typedef struct {
 
 
 
+/*
+    Create new Feed Forward Neural Network with layer sizes from layer_sizes array
+    Load a training set from mnist_path
+Example : 
+    layer_sizes = { 784, 128, 10 }, num_layers = 3
+    A network with 784 input layer (required for mnist), 128 neuron hidden and 10 neuron output layer
+*/
 ffnn* ffnn_create(u16* layer_sizes, u8 num_layers, float learning_rate, const char* mnist_path);
-ffnn* ffnn_create_trained(const char* saved_path, const char* testing_set);
-void ffnn_destroy(ffnn* net);
 
+/*
+    Create a Feed Forward Neural Network with pre-trained weights from ffnn_save_parameters()
+    Load a testing set for it from path testing_set
+*/
+ffnn* ffnn_create_trained(const char* saved_path, const char* testing_set);
+
+/*
+    Free resources : Arenas, ffnn struct
+*/
+void ffnn_destroy(ffnn* net);
 
 
 /* Scorcastic Gradient Decent
@@ -84,8 +99,12 @@ void ffnn_train_batch_epochs(ffnn* net, u16 batch_size, u16 num_epochs);
 
 void ffnn_test(ffnn* net);
 
+// change dataset while weights are in memory
+// used to switch from training to testing set after training
 void ffnn_change_dataset(ffnn* net, const char* dataset_path);
-b8   ffnn_save_parameters(const ffnn* net, const char* outfile);
+
+// save the trained weights and biases in binary format
+b8 ffnn_save_parameters(const ffnn* net, const char* outfile);
 
 
 #define LEARN_DECAY_RATE 0.9995f

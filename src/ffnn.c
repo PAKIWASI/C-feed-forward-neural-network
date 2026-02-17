@@ -26,6 +26,7 @@ u8 get_prediction(float* prediction_arr);
 void shuffle_indices(u16* indices, u16 size);
 
 
+
 // accumilator gradients for batch training
 typedef struct {
     Matrixf dL_dW; // (n x m) - How much current layer's weights effect Loss. (How to change weights to reduce loss)
@@ -167,7 +168,6 @@ void ffnn_destroy(ffnn* net)
     free(net);
 }
 
-// switch from training to testing set while trained parameters are in memory
 void ffnn_change_dataset(ffnn* net, const char* dataset_path)
 {
     arena_clear(net->dataset_arena);

@@ -1,4 +1,4 @@
-#include "common.h"
+#include "arena.h"
 #include "layer.h"
 #include "mnist_predictor.h"
 #include "fast_math.h"
@@ -69,7 +69,7 @@ void render_canvas(Canvas* canvas)
         for (int x = 0; x < CANVAS_SIZE; x++)
         {
             u8 value = canvas->data[y][x];
-            Color pixel_color = (Color){value, value, value, 255};
+            Color pixel_color = (Color){value, value, value, 255};  // higher val -> brigher pixel
             
             DrawRectangle(
                 x * SCALE, 
@@ -299,13 +299,19 @@ b8 load_trained_network(ffnn** net_ptr, const char* params_path)
 
     // Create network structure
     ffnn* net = malloc(sizeof(ffnn));
-    net->main_arena = arena_create(nMB(5));
-    net->dataset_arena = arena_create(1000); // Minimal, not used
-    net->learning_rate = 0.01f; // Not used for inference
+
+    // TODO: set this according to layer sizes
+    // make a calc_network_size() to do this
+    net->main_arena = arena_create(nMB(5));             
+  
+    net->dataset_arena = arena_create(1);  // not used 
+    net->learning_rate = -1; // Not used for inference
+
 
     // Initialize layers vector
     genVec_init_stk(num_layers, sizeof(Layer*), NULL, NULL, NULL, &net->layers);
     
+
     // Reopen and read weights
     fclose(f);
     f = fopen(params_path, "rb");
