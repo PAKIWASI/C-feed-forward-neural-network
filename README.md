@@ -1,28 +1,19 @@
-# Feed-Forward Neural Network (FFNN) for MNIST
+# Feed-Forward Neural Network in C
 
-A high-performance, from-scratch implementation of a feed forward neural network in C for handwritten digit recognition using the MNIST dataset.
+A from-scratch feedforward neural network in C for handwritten digit recognition (MNIST) and Fashion-MNIST. No ML frameworks, no math libraries — just C.
 
-No Libraries (Not even Math)
+---
 
-## Overview
+## Features
 
-This project implements a complete neural network training and inference system with:
-**WCtoolkit** My C toolkit for data structures, arenas, rng and memory management
-**Optimized forward and backward propagation**
-**Multiple training algorithms** (SGD and Mini-Batch GD)
-**Real-time GUI predictor** for interactive digit recognition
-**Clean, modular architecture** with no external ML libraries
-
-### Key Features
-
-**Pure C Implementation** - No TensorFlow, PyTorch, or ML frameworks  
-**Memory Efficient** - Custom arena allocators for fast allocation/deallocation  
-**Multiple Activation Functions** - ReLU (hidden) and Softmax (output)  
-**Batch Training** - Mini-batch gradient descent with shuffling  
-**Weight Initialization** - He initialization (ReLU) and Xavier (Softmax)  
-**Model Persistence** - Save/load trained weights  
-**Interactive GUI** - Real-time drawing and prediction with raylib  
-**MNIST Support** - Custom format for fast loading  
+- **Pure C** — no TensorFlow, PyTorch, NumPy, or math.h
+- **Custom memory management** — arena allocators for fast, zero-fragmentation allocation
+- **Two training modes** — Stochastic Gradient Descent and Mini-Batch GD
+- **Correct weight initialization** — He init (ReLU layers), Xavier (Softmax output)
+- **Model persistence** — save/load trained weights in a compact binary format
+- **Fashion-MNIST support** — same pipeline, different dataset
+- **Interactive GUI** — draw digits in real-time and watch predictions update (via raylib)
+- **SIMD-friendly loops** — `restrict` pointers and row-major layout for auto-vectorization
 
 ---
 
@@ -31,29 +22,45 @@ This project implements a complete neural network training and inference system 
 ```
 ffnn/
 ├── src/
-│   ├── ffnn.c                    # Neural network implementation
-│   ├── layer.c                   # Layer operations (forward/backward)
-│   ├── idx_file_reader.c         # IDX format parser (MNIST)
-│   ├── mnist_data_processor.c    # Data preprocessing and loading
-│   └── main.c                    # CLI training program
+│   ├── ffnn.c                  # Network: create, train, test, save/load
+│   ├── layer.c                 # Forward pass, backprop, weight updates
+│   ├── idx_file_reader.c       # Parses MNIST IDX binary format
+│   ├── mnist_data_processor.c  # Converts IDX → custom .bin format
+│   └── main.c                  # Entry point (edit to configure training)
 │
 ├── include/
-│   ├── ffnn.h                    # Network API
-│   ├── layer.h                   # Layer structures
-│   ├── mnist_data_processor.h    # Data processing API
-│   └── common.h                  # Common types and macros
+│   ├── ffnn.h                  # Public API
+│   ├── layer.h                 # Layer struct and operations
+│   ├── idx_file_reader.h
+│   └── mnist_data_processor.h
 │
 ├── external/
-│   ├── C-Data-Structures-Lib/    # Vector, arena allocator
-│   └── raylib/                   # GUI predictor files
-│       ├── mnist_live_predictor.h
-│       ├── mnist_live_predictor_impl.c
-│       └── live_predictor_main.c
+│   ├── C-Data-Structures-Lib/  # Arena, genVec, Matrix, String (WCtoolkit)
+│   └── raylib/
+│       ├── src/
+│       │   ├── mnist_predictor.c   # Canvas, UI, prediction logic
+│       │   └── ray_main.c          # GUI event loop
+│       └── include/
+│           └── mnist_predictor.h
+│
+├── tests/
+│   ├── mnist_tests.h           # MNIST and Fashion-MNIST test helpers
+│   └── xor_test.h              # XOR sanity check for the network
 │
 ├── data/
-│   ├── dataset.bin               # Training set (custom format)
-│   ├── testset.bin              # Test set (custom format)
-│   └── trained_model.bin        # Saved weights and biases
+│   ├── raw/                    # Original MNIST IDX files (you provide)
+│   │   ├── train-images-idx3-ubyte
+│   │   ├── train-labels-idx1-ubyte
+│   │   ├── t10k-images-idx3-ubyte
+│   │   └── t10k-labels-idx1-ubyte
+│   ├── dataset.bin             # Converted MNIST training set (~47MB)
+│   ├── testset.bin             # Converted MNIST test set (~7.8MB)
+│   ├── fashion_mnist/
+│   │   ├── raw/                # Fashion-MNIST IDX files
+│   │   ├── fashion_train.bin
+│   │   └── fashion_test.bin
+│   ├── 128.bin                 # Saved weights: 784→128→10
+│   └── 256.bin                 # Saved weights: 784→256→10
 │
 ├── CMakeLists.txt
 └── README.md
@@ -61,29 +68,9 @@ ffnn/
 
 ---
 
-## Quick Start
+## Build
 
-```
-
-### Prepare MNIST Dataset
-
-Download the MNIST dataset and convert to custom format:
-
-```c
-// Convert IDX files to custom binary format
-mnist_prepare_from_idx(
-    "/path/to/mnist/",     // Directory with IDX files
-    "/path/to/output/"     // Output directory for .bin files
-);
-```
-
-**MNIST IDX files needed:**
-- `train-images-idx3-ubyte` (60,000 training images)
-- `train-labels-idx1-ubyte` (60,000 training labels)
-- `t10k-images-idx3-ubyte` (10,000 test images)
-- `t10k-labels-idx1-ubyte` (10,000 test labels)
-
-### Build
+Requires **clang** and **CMake 3.20+**. raylib must be pre-built at `build/raylib/`.
 
 ```bash
 mkdir build && cd build
@@ -91,615 +78,283 @@ cmake .. -DCMAKE_BUILD_TYPE=Release
 make
 ```
 
-This creates two executables:
-- `main` - CLI training/testing program
-- `live_predictor` - Interactive GUI
+This produces two executables:
+- `main` — CLI: train, test, convert datasets
+- `gui` — Interactive raylib predictor
 
-### Train a Model
+For a debug build with sanitizers (ASan, UBSan, LSan):
+```bash
+cmake .. -DCMAKE_BUILD_TYPE=Debug
+```
+
+---
+
+## Quick Start
+
+### 1. Prepare the Dataset
+
+Download the MNIST IDX files and place them in `data/raw/`. Then convert to the custom binary format by calling `mnist_prepare_from_idx` in `main.c`:
 
 ```c
-// In main.c
-pcg32_rand_seed(1234, 1);  // Seed RNG for reproducibility
+// Convert training set
+mnist_prepare_from_idx("data/raw/", "data/", true);
+
+// Convert test set  
+mnist_prepare_from_idx("data/raw/", "data/", false);
+```
+
+> **Note:** The directory path must have a trailing slash — `"data/raw/"` not `"data/raw"`.
+
+The same function works for Fashion-MNIST — just point it at the Fashion-MNIST IDX files:
+
+```c
+mnist_prepare_from_idx("data/fashion_mnist/raw/", "data/fashion_mnist/", true);
+mnist_prepare_from_idx("data/fashion_mnist/raw/", "data/fashion_mnist/", false);
+```
+
+### 2. Train
+
+Edit `main.c` and run `./main`:
+
+```c
+pcg32_rand_seed(1234, 1);   // seed for reproducibility
 
 ffnn* net = ffnn_create(
-    (u16[4]){784, 128, 64, 10},  // Architecture: 784→128→64→10
-    4,                            // Number of layers (includes connections)
-    0.01f,                        // Learning rate
-    "data/dataset.bin"            // Training data path
+    (u16[3]){784, 256, 10}, // architecture: input → hidden → output
+    3,                       // number of layers
+    0.015f,                  // learning rate
+    "data/dataset.bin"       // training data
 );
 
-// Train with mini-batch gradient descent
-ffnn_train_batch_epochs(net, 32, 5);  // 32 batch size, 5 epochs
+ffnn_train(net);             // SGD over the full 60k dataset
 
-// Save trained parameters
-ffnn_save_parameters(net, "data/trained_model.bin");
+ffnn_save_parameters(net, "data/256.bin");
 
-// Test on test set
-ffnn_change_dataset(net, "data/testset.bin");
+ffnn_set_dataset(net, "data/testset.bin");
 ffnn_test(net);
 
 ffnn_destroy(net);
 ```
 
-**Example Output:**
-```
-=== Epoch 1/5 ===
-    Batch 100/1875 (89.34%)
-    Batch 200/1875 (91.22%)
-    ...
-Epoch 1 Complete: Accuracy = 93.45% (56070/60000)
-
-=== Epoch 5/5 ===
-Epoch 5 Complete: Accuracy = 97.82% (58692/60000)
-  New best accuracy!
-
-=== Training Complete ===
-Best Accuracy: 97.82%
-
-Testing Accuracy: 96.24% (9624/10000)
-```
-
-### Interactive Prediction (GUI)
+### 3. Run the GUI
 
 ```bash
-./live_predictor data/trained_model.bin
+./gui
 ```
+
+The GUI loads `data/256.bin` by default (configurable in `ray_main.c`). Draw a digit on the canvas and the network predicts in real time when you release the mouse.
 
 **Controls:**
-- **Left Mouse** - Draw digit
-- **C** - Clear canvas
-- **S** - Save drawing as .raw file
-- **+/-** - Adjust brush size
-- **ESC** - Exit
 
----
-
-## Network Architecture
-
-### Layer Structure
-
-Each layer contains:
-
-```c
-typedef struct Layer {
-    // Forward pass
-    float* x;      // Input (1 × m)
-    Matrix W;      // Weights (n × m)
-    float* b;      // Biases (1 × n)
-    float* z;      // Pre-activation (1 × n): z = xW + b
-    float* a;      // Activation (1 × n): a = f(z)
-    
-    // Backward pass (gradients)
-    Matrix dL_dW;  // Weight gradients (n × m)
-    float* dL_dz;  // Pre-activation gradients (1 × n)
-    float* dL_dx;  // Input gradients (1 × m) - passed to prev layer
-    
-    // Dimensions
-    u16 m;         // Input size
-    u16 n;         // Output size
-    
-    bool is_output_layer;
-} Layer;
-```
-
-### Activation Functions
-
-**Hidden Layers - ReLU:**
-```
-f(z) = max(0, z)
-f'(z) = 1 if z > 0, else 0
-```
-
-**Output Layer - Softmax:**
-```
-f(z_i) = exp(z_i) / Σ exp(z_j)
-```
-
-**Loss Function - Cross-Entropy:**
-```
-L = -Σ y_i × log(p_i)
-where y_i = true label (one-hot), p_i = prediction
-```
-
-### Weight Initialization
-
-**He Initialization** (Hidden Layers with ReLU):
-```c
-σ = sqrt(2 / input_size)
-W ~ N(0, σ²)
-```
-Compensates for ReLU killing ~50% of neurons.
-
-**Xavier Initialization** (Output Layer with Softmax):
-```c
-limit = sqrt(6 / (input_size + output_size))
-W ~ Uniform(-limit, +limit)
-```
-Maintains variance through both forward and backward passes.
-
----
-
-## Training Algorithms
-
-### Stochastic Gradient Descent (SGD)
-
-```c
-void ffnn_train(ffnn* net);
-```
-
-Updates weights after **every single sample**:
-```
-For each sample in dataset:
-    1. Forward pass → get prediction
-    2. Backward pass → compute gradients
-    3. Update weights: W = W - α × ∇L
-```
-
-**60,000 samples = 60,000 weight updates per epoch**
-
-**Pros:** Fast convergence on small batches  
-**Cons:** Noisy updates, may oscillate  
-
-### Mini-Batch Gradient Descent
-
-```c
-void ffnn_train_batch_epochs(ffnn* net, u16 batch_size, u16 num_epochs);
-```
-
-Accumulates gradients over **batch_size samples**, then updates:
-```
-For each epoch:
-    Shuffle dataset
-    For each batch of 32 samples:
-        1. Forward pass on all 32
-        2. Accumulate gradients: ∇L_total += ∇L_sample
-        3. Average: ∇L_avg = ∇L_total / 32
-        4. Update weights: W = W - α × ∇L_avg
-```
-
-**60,000 samples ÷ 32 = 1,875 weight updates per epoch**
-
-**Pros:** Smoother updates, better generalization, GPU-friendly  
-**Cons:** Slower per-epoch than SGD  
+| Key / Input | Action |
+|---|---|
+| Left Mouse | Draw |
+| C | Clear canvas |
+| S | Save canvas as `.raw` file |
+| `+` / `-` | Increase / decrease brush size |
+| ESC | Exit |
 
 ---
 
 ## API Reference
 
-### Network Management
+### Network
 
 ```c
-// Create and initialize network
-ffnn* ffnn_create(u16* layer_sizes, u8 num_layers, 
+// Create a new network and load training data
+ffnn* ffnn_create(u16* layer_sizes, u8 num_layers,
                   float learning_rate, const char* mnist_path);
 
-// Load pre-trained network
-ffnn* ffnn_create_trained(const char* saved_path, const char* testing_set);
+// Load a previously saved network (weights only, no dataset)
+ffnn* ffnn_create_trained(const char* saved_path);
 
-// Clean up
+// Swap the loaded dataset (e.g. switch train → test)
+void ffnn_set_dataset(ffnn* net, const char* dataset_path);
+
 void ffnn_destroy(ffnn* net);
 ```
 
 ### Training
 
 ```c
-// Train with SGD (one sample at a time)
+// SGD: one weight update per sample — 60,000 updates per pass
 void ffnn_train(ffnn* net);
 
-// Train with mini-batch GD
-void ffnn_train_batch_epochs(ffnn* net, u16 batch_size, u16 num_epochs);
+// Mini-batch GD: accumulate gradients over batch_size samples, then update
+// batch_size: 16–64 recommended. num_epochs: passes over the full dataset.
+void ffnn_train_batch(ffnn* net, u16 batch_size, u16 num_epochs);
 ```
 
-### Testing and Inference
+### Evaluation and Persistence
 
 ```c
-// Test accuracy on current dataset
+// Print accuracy on the currently loaded dataset
 void ffnn_test(ffnn* net);
 
-// Switch datasets (e.g., train → test)
-void ffnn_change_dataset(ffnn* net, const char* dataset_path);
+// Save weights and biases to a compact binary file
+b8 ffnn_save_parameters(const ffnn* net, const char* outfile);
 ```
 
-### Model Persistence
+### Data Preparation
 
 ```c
-// Save trained weights and biases
-bool ffnn_save_parameters(const ffnn* net, const char* outfile);
+// Convert MNIST/Fashion-MNIST IDX files to the custom .bin format
+// use_train=true → 60k training set, use_train=false → 10k test set
+// data_dir must have a trailing slash
+b8 mnist_prepare_from_idx(const char* data_dir, const char* out_dir, b8 use_train);
 
-// Binary format:
-// [num_layers: u64]
-// For each layer:
-//   [input_size: u16][output_size: u16]
-//   [weights: float[n×m]][biases: float[n]]
-```
-
-### Layer Operations
-
-```c
-// Forward propagation
-void layer_calc_output(Layer* layer, const float* x);
-// Computes: z = xW + b, a = f(z)
-
-// Backward propagation
-void layer_calc_deriv(Layer* layer, const float* dL_da);
-// Computes: dL/dW, dL/db, dL/dx
-
-// Update parameters
-void layer_update_WB(Layer* layer, float learning_rate);
-// Updates: W = W - α×dL/dW, b = b - α×dL/db
+// Load a .bin file into an mnist_dataset struct
+b8 mnist_load_custom_file(mnist_dataset* set, const char* filepath, Arena* arena);
 ```
 
 ---
 
-## Live Predictor GUI
+## Network Architecture
 
-### Architecture
+### Layer
 
-The GUI is built with **raylib** and consists of 3 files:
+Each layer stores everything needed for both forward and backward passes:
 
-1. **`mnist_predictor.h`** - Definitions and declarations
-2. **`mnist_predictor.c`** - Canvas, UI, and prediction logic
-3. **`ray_main.c`** - Main event loop
+```c
+typedef struct Layer {
+    float*  x;      // input pointer (1×m) — points to prev layer's output
+    float*  b;      // biases (1×n)
+    Matrixf W;      // weights (n×m) — row-major for cache efficiency
+    float*  z;      // pre-activation: z = xW + b
+    float*  a;      // activation: a = f(z)
 
-### Features
+    Matrixf dL_dW;  // weight gradients (n×m)
+    float*  dL_dz;  // pre-activation gradients (1×n)
+    float*  dL_dx;  // input gradients (1×m) — passed to previous layer
 
-- **700×700 drawing canvas** (28×28 pixels scaled 25×)
-- **Gaussian brush** for smooth, natural strokes
-- **Real-time predictions** update when mouse is released
-- **Probability visualization** for all 10 digits (0-9)
-- **Adjustable brush size** (0.5 - 5.0)
-- **Save drawings** as raw 28×28 grayscale files
-
-
-The interface displays:
-- **Left side:** Drawing canvas with grid
-- **Right side:** Prediction panel with:
-  - Large predicted digit
-  - Confidence percentage
-  - Probability bars for all digits (0-9)
-- **Bottom:** Controls and status
-
-### Implementation Details
-
-**Prediction Pipeline:**
-```
-1. Canvas (28×28 u8 array, values 0-255)
-   ↓
-2. Normalize: pixel / 255.0 → [0.0, 1.0]
-   ↓
-3. Forward pass through network
-   ↓
-4. Softmax output → probabilities for each digit
-   ↓
-5. Display: Find max probability, update UI
+    u16 m;          // input size
+    u16 n;          // output size
+    b8  is_output_layer;
+    Matrixf W_T;    // cached transpose for backprop
+} Layer;
 ```
 
-**Performance:**
-- Forward pass: ~1ms (784→128→64→10 network)
-- Predictions update only when mouse is released (prevents lag)
-- Canvas rendering: 60 FPS
+### Activations
+
+**Hidden layers — ReLU:**
+```
+f(z)  = max(0, z)
+f'(z) = 1 if z ≥ 0, else 0
+```
+
+**Output layer — Softmax** (numerically stable, subtracts max before exp):
+```
+f(z_i) = exp(z_i - max_z) / Σ exp(z_j - max_z)
+```
+
+**Loss — Cross-Entropy:**
+```
+L = -Σ y_i × log(p_i)
+```
+
+The softmax + cross-entropy derivative simplifies beautifully:
+```
+dL/dz_i = p_i - y_i
+```
+
+### Weight Initialization
+
+| Layer Type | Method | Formula |
+|---|---|---|
+| Hidden (ReLU) | He | `σ = sqrt(2 / input_size)`, `W ~ N(0, σ²)` |
+| Output (Softmax) | Xavier | `limit = sqrt(6 / (in + out))`, `W ~ Uniform(-limit, +limit)` |
 
 ---
 
-## Data Format
+## Custom Binary Format
 
-### Custom Binary Format
-
-Efficient format for fast loading (no parsing overhead):
+All datasets are stored in a simple format for fast loading — no parsing, just one `fread`:
 
 ```
 Header (4 bytes):
-  [num_images: u16]  - Number of images in file
-  [width: u8]        - Image width (28)
-  [height: u8]       - Image height (28)
+  [num_images : u16]
+  [width      : u8 ]   always 28
+  [height     : u8 ]   always 28
 
-Data (785 bytes per sample):
-  [label: u8]        - Digit label (0-9)
-  [pixels: u8[784]]  - Grayscale pixels (row-major)
+Per sample (785 bytes):
+  [label : u8      ]   0–9
+  [pixels: u8 × 784]   row-major, 0–255
 ```
 
-**Total size:**
-- Training: 60,000 × 785 + 4 = **47,100,004 bytes** (~45 MB)
-- Testing: 10,000 × 785 + 4 = **7,850,004 bytes** (~7.5 MB)
+| Dataset | Size |
+|---|---|
+| MNIST train | 47,100,004 bytes (~45 MB) |
+| MNIST test  | 7,850,004 bytes (~7.5 MB) |
 
-### Converting IDX to Custom Format
+### Saved Model Format
 
-```c
-bool mnist_prepare_from_idx(const char* data_dir, const char* out_dir);
 ```
-
-Reads MNIST IDX files and outputs `label_img.bin`:
-
-**Input files:**
-- `train-images-idx3-ubyte` 
-- `train-labels-idx1-ubyte`
-- `t10k-images-idx3-ubyte`
-- `t10k-labels-idx1-ubyte`
-
-**Output:**
-- `dataset.bin` (training)
-- `testset.bin` (testing)
-
----
-
-## Performance Optimizations
-
-### Memory Management
-
-**Arena Allocators:**
-```c
-Arena* main_arena = arena_create(nMB(5));        // Layers, weights, biases
-Arena* dataset_arena = arena_create(nMB(47));    // MNIST data
-```
-
-Benefits:
-- **No fragmentation** - Linear allocation
-- **Fast deallocation** - Free entire arena at once
-- **Cache-friendly** - Contiguous memory layout
-
-### Cache Optimization
-
-**Row-major matrix operations:**
-```c
-// Weight matrix stored as (n × m) for row-wise access
-for (u16 i = 0; i < n; i++) {           // Each output neuron
-    z[i] = 0.0f;
-    for (u16 j = 0; j < m; j++) {       // Sequential memory access
-        z[i] += x[j] * W[i][j];
-    }
-    z[i] += b[i];
-}
-```
-
-**Matrix transposition for backprop:**
-```c
-// Pre-compute transpose once, then access row-wise
-matrix_T(&W_T, &W);  // Transpose (n×m) → (m×n)
-
-for (u16 i = 0; i < m; i++) {
-    dL_dx[i] = 0.0f;
-    for (u16 j = 0; j < n; j++) {
-        dL_dx[i] += dL_dz[j] * W_T[i][j];  // Sequential access
-    }
-}
-```
-
-### Numerical Stability
-
-**Softmax overflow prevention:**
-```c
-// Subtract max before exp() to prevent overflow
-float max_z = max(z);
-for (int i = 0; i < n; i++) {
-    a[i] = exp(z[i] - max_z);  // Safe from overflow
-    sum += a[i];
-}
-for (int i = 0; i < n; i++) {
-    a[i] /= sum;  // Normalize
-}
-```
-
-### Fast Math
-
-Custom implementations for better performance:
-```c
-float fast_exp(float x);    // Approximation of e^x
-float fast_sqrt(float x);   // Fast inverse square root
+[num_layers : u64]
+For each layer:
+  [input_size  : u16]
+  [output_size : u16]
+  [weights     : f32 × (n×m)]
+  [biases      : f32 × n    ]
 ```
 
 ---
 
-## Testing and Validation
+## Performance
 
-### Training Metrics
+### Memory
 
-During training, the system tracks:
-- **Epoch accuracy** - Percentage of correct predictions
-- **Batch progress** - Every 100 batches
-- **Best accuracy** - Highest accuracy achieved
-
-### Test Metrics
+Two arenas are used — one for the network, one for the dataset:
 
 ```c
-void ffnn_test(ffnn* net);
+Arena* main_arena;     // layers, weights, biases — typically 1–5 MB
+Arena* dataset_arena;  // image data — ~47 MB for MNIST train
 ```
 
-Outputs:
-- **Overall accuracy** - % correct on test set
-- **Per-digit accuracy** - Confusion matrix insights
-- **Sample-by-sample results** (optional debug mode)
+Arena allocation is a pointer bump — O(1) with no fragmentation. Cleanup frees the entire arena in one call.
 
-### Example Results
+### Compute
 
-**Typical performance:**
-```
-Network: 784 → 128 → 64 → 10
-Training: 5 epochs, batch size 32
-Learning rate: 0.01
+The forward and backward pass inner loops use `restrict` pointers and row-major layout to enable auto-vectorization (SIMD). With `-march=native -O3`, the compiler emits vectorized code for the matrix-vector multiply loops.
 
-Training Accuracy: 97.82%
-Test Accuracy: 96.24%
-```
-
-**Per-digit breakdown:**
-```
-Digit 0: 98.4% (964/980)
-Digit 1: 98.9% (1123/1135)
-Digit 2: 95.3% (983/1032)
-Digit 3: 96.1% (970/1010)
-Digit 4: 96.4% (947/982)
-Digit 5: 95.7% (854/892)
-Digit 6: 97.3% (932/958)
-Digit 7: 95.8% (985/1028)
-Digit 8: 94.8% (923/974)
-Digit 9: 95.5% (964/1009)
-```
+The W_T (transpose) matrix is pre-allocated and computed once per backward pass rather than reallocated each time.
 
 ---
 
-## Mathematical Foundation
+## Results
 
-### Forward Propagation
+| Architecture | Training | Test Accuracy |
+|---|---|---|
+| 784→128→10 | SGD, lr=0.015 | ~95.5% |
+| 784→256→10 | SGD, lr=0.015 | **96.7%** |
 
-For layer *l*:
-```
-z^(l) = x^(l) W^(l) + b^(l)
-a^(l) = f(z^(l))
-x^(l+1) = a^(l)
-```
-
-### Backpropagation
-
-**Output layer (softmax + cross-entropy):**
-```
-dL/dz = a - y  (simplified derivative)
-```
-
-**Hidden layers (ReLU):**
-```
-dL/dz = dL/da ⊙ f'(z)
-where f'(z) = 1 if z > 0, else 0
-```
-
-**Gradient computation:**
-```
-dL/dW = (dL/dz)^T × x       (n×m matrix)
-dL/db = dL/dz                (n vector)
-dL/dx = dL/dz × W            (m vector, passed downstream)
-```
-
-**Weight update:**
-```
-W = W - α × dL/dW
-b = b - α × dL/db
-```
-
-### Batch Gradient Averaging
-
-For mini-batch of size *B*:
-```
-∇L_avg = (1/B) Σ ∇L_i
-
-W = W - α × ∇L_avg
-```
+Fashion-MNIST is a harder problem (10 clothing categories vs. handwritten digits) and achieves lower accuracy with the same architecture.
 
 ---
 
-## Configuration and Tuning
+## Limitations
 
-### Hyperparameters
-
-**Learning rate:**
-```c
-#define DEFAULT_LEARNING_RATE 0.01f
-
-// Optional decay (currently commented out)
-#define LEARN_DECAY_RATE 0.9995f
-#define LEARN_DECAY_AFTER 1000
-```
-
-**Network architecture:**
-```c
-// Recommended: 2-3 hidden layers
-u16 layer_sizes[] = {784, 128, 64, 10};
-
-// Larger for more capacity:
-u16 layer_sizes[] = {784, 256, 128, 10};
-
-// Smaller for faster training:
-u16 layer_sizes[] = {784, 64, 10};
-```
-
-**Batch training:**
-```c
-// Batch size: 16-64 (powers of 2)
-// Epochs: 5-10 for MNIST
-ffnn_train_batch_epochs(net, 32, 5);
-```
-
-### Tuning Tips
-
-1. **Too low accuracy (<90%):**
-   - Increase network size (more neurons/layers)
-   - Train for more epochs
-   - Check data preprocessing
-
-2. **Overfitting (train >> test accuracy):**
-   - Reduce network size
-   - Use larger batch sizes
-   - Implement dropout (future work)
-
-3. **Training too slow:**
-   - Increase learning rate (0.01 → 0.05)
-   - Use larger batch sizes (32 → 64)
-   - Reduce network size
-
-4. **Training unstable:**
-   - Decrease learning rate (0.01 → 0.001)
-   - Use smaller batch sizes
-   - Check weight initialization
+- No dropout or batch normalization
+- No GPU acceleration
+- No convolutional layers (limits Fashion-MNIST ceiling)
+- Mini-batch training currently achieves lower accuracy than SGD — likely a learning rate tuning issue (batch training requires a higher lr than SGD)
+- The live predictor draws at 25× scale; real handwriting differs from MNIST's centered, anti-aliased digits, which can affect prediction quality
 
 ---
 
 ## Dependencies
 
-### Core Libraries
+**Core:** Standard C library only (`stdio`, `stdlib`, `string`)
 
-- **Standard C Library** - stdio, stdlib, string
-- **WCtoolkit** - Custom implementations:
-  - `Arena` - Memory allocator
-  - `genVec` - Generic vector (dynamic array)
-  - `Matrix` - 2D array wrapper
-  - `String` - Dynamic string
+**WCtoolkit** (`external/C-Data-Structures-Lib`):
+- `Arena` — linear memory allocator
+- `genVec` — generic dynamic array
+- `Matrixf` — 2D float array wrapper
+- `String` — dynamic string with append/remove
 
-### GUI (Optional)
-
-- **raylib** - Graphics and input handling
-  - Window management
-  - Drawing primitives
-  - Mouse/keyboard input
-
----
-
-## Limitations and Future Work
-
-### Current Limitations
-
-- Can't really make 100% working MNIST-like images in the gui
-- No dropout regularization
-- No batch normalization
-- No GPU acceleration
-- Fixed to MNIST format only
-- No convolutional layers
-
----
-
-## Contributing
-
-This is a learning/educational project demonstrating neural networks from scratch in C. Feel free to:
-
-- Report bugs or issues
-- Suggest optimizations
-- Propose new features
-- Submit pull requests
-
----
-
-## References
-
-### Datasets (included in repo)
-
-- **MNIST Database** - Yann LeCun et al.
-  - http://yann.lecun.com/exdb/mnist/
-
-### Libraries Used
-
-- **raylib** - https://www.raylib.com/
+**GUI only:** [raylib](https://www.raylib.com/) for window, drawing, and input
 
 ---
 
 ## License
 
-MIT
-
----
+MIT — see `LICENSE`.
