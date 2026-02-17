@@ -19,12 +19,12 @@ message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
 
 # Debug configuration with sanitizers
-set(CMAKE_C_FLAGS_DEBUG "-g -O0 -fno-omit-frame-pointer -fsanitize=address -fsanitize=undefined")
+set(CMAKE_C_FLAGS_DEBUG "-g -O0 -fno-omit-frame-pointer -fsanitize=address -fsanitize=undefined -fsanitize=leak")
 set(CMAKE_EXE_LINKER_FLAGS_DEBUG "-fsanitize=address -fsanitize=undefined")
 
 
 # Release configuration
-set(CMAKE_C_FLAGS_RELEASE "-O3 -DNDEBUG")
+set(CMAKE_C_FLAGS_RELEASE "-O3 -DNDEBUG -march=native -Rpass=loop-vectorize")
 set(CMAKE_EXE_LINKER_FLAGS_RELEASE "")
 
 # Collect source files
