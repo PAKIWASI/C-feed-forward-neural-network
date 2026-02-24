@@ -4,6 +4,10 @@ A from-scratch feedforward neural network in C for handwritten digit recognition
 
 ---
 
+<video src="https://github.com/PAKIWASI/C-feed-forward-neural-network/tree/main/out.mp4" controls></video>
+
+---
+
 ## Features
 
 - **Pure C** — no TensorFlow, PyTorch, NumPy, or math.h
