@@ -2,7 +2,6 @@
 #define TENSOR_H
 
 #include "arena.h"
-#include "common.h"
 #include "matrix.h"
 
 

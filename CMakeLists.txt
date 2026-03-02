@@ -28,6 +28,7 @@ set(CMAKE_C_FLAGS_RELEASE "-O3 -DNDEBUG -march=native -Rpass=loop-vectorize")
 set(CMAKE_EXE_LINKER_FLAGS_RELEASE "")
 
 # Collect source files
+# WARNING: this is an older version of my WCtoolkit
 file(GLOB C_DS_LIB "external/C-Data-Structures-Lib/src/*.c")
 file(GLOB C_DS_INCLUDE "external/C-Data-Structures-Lib/include")
 
